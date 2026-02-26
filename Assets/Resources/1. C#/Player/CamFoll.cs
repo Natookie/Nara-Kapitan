@@ -1,0 +1,85 @@
+using UnityEngine;
+using UnityEngine.InputSystem;
+
+[RequireComponent(typeof(LineRenderer))]
+public class CamFoll : MonoBehaviour
+{
+    [Header("ORBIT")]
+    [SerializeField] private float orbitRadius = 2f;
+    [SerializeField] private float smoothSpeed = 5f;
+    [SerializeField] private float minDistanceFromPlayer = 0.5f;
+    [SerializeField] private float maxDistanceFromPlayer = 3f;
+    
+    [Header("INPUT")]
+    [SerializeField] private float cursorInfluenceRadius = 100f;
+
+    [Header("LINE RENDERER")]
+    [SerializeField] private Color lineColor = Color.white;
+    [SerializeField] private float lineWidth = 0.1f;
+    [SerializeField] private float lineLength = 100f;
+
+    [Header("REFERENCES")]
+    [SerializeField] private Transform playerTransform;
+    [SerializeField] private Camera thisCam;
+    [SerializeField] private LineRenderer lineRenderer;
+    
+    private Vector3 offset;
+
+    void Awake(){
+        SetupLineRenderer();
+    }
+
+    void SetupLineRenderer(){
+        if(lineRenderer != null){
+            lineRenderer.startColor = lineColor;
+            lineRenderer.endColor = lineColor;
+            lineRenderer.startWidth = lineWidth;
+            lineRenderer.endWidth = lineWidth;
+            lineRenderer.positionCount = 2;
+            lineRenderer.useWorldSpace = true;
+        }
+    }
+
+    void LateUpdate(){
+        if(playerTransform == null || thisCam == null) return;
+        
+        CalculateOffsetFromCursor();
+        UpdateCameraPosition();
+        UpdateLineRenderer();
+    }
+
+    void CalculateOffsetFromCursor(){
+        Vector2 mousePosition = Mouse.current.position.ReadValue();
+        Vector3 mouseScreenPosition = new Vector3(mousePosition.x, mousePosition.y, 0);
+        Vector3 playerScreenPosition = thisCam.WorldToScreenPoint(playerTransform.position);
+        
+        Vector2 screenCenter = new Vector2(Screen.width / 2f, Screen.height / 2f);
+        Vector2 cursorDirection = (Vector2)mouseScreenPosition - screenCenter;
+        
+        float cursorDistance = cursorDirection.magnitude;
+        float normalizedDistance = Mathf.Clamp01(cursorDistance / cursorInfluenceRadius);
+        
+        Vector2 normalizedDirection = cursorDirection.normalized;
+        
+        float currentRadius = Mathf.Lerp(minDistanceFromPlayer, maxDistanceFromPlayer, normalizedDistance);
+        
+        offset = new Vector3(normalizedDirection.x, normalizedDirection.y, 0) * orbitRadius;
+    }
+
+    void UpdateCameraPosition(){
+        Vector3 targetPosition = playerTransform.position + offset;
+        targetPosition.z = 0f;
+        
+        transform.position = Vector3.Lerp(transform.position, targetPosition, smoothSpeed * Time.deltaTime);
+    }
+
+    void UpdateLineRenderer(){
+        if(lineRenderer != null && playerTransform != null){
+            Vector3 direction = (transform.position - playerTransform.position).normalized;
+            Vector3 endPoint = playerTransform.position + direction * lineLength;
+            
+            lineRenderer.SetPosition(0, playerTransform.position);
+            lineRenderer.SetPosition(1, endPoint);
+        }
+    }
+}
