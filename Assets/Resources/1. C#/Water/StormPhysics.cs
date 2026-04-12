@@ -57,6 +57,10 @@ public class StormPhysics : MonoBehaviour
     private Vector2[] debugWaterLevels;
     private float[] debugSubmersionDepths;
     
+    private float lastWaveHeight;
+    private float lastWaveX;
+    private float waveVelocity;
+    
     void Start(){
         ocean = FindFirstObjectByType<StormyOcean>();
         
@@ -72,6 +76,9 @@ public class StormPhysics : MonoBehaviour
         
         targetHeight = ocean.GetWaterHeightAt(transform.position.x);
         currentHeight = targetHeight;
+        
+        lastWaveHeight = targetHeight;
+        lastWaveX = transform.position.x;
     }
     
     void CreateBuoyancyPoints(){
@@ -101,6 +108,18 @@ public class StormPhysics : MonoBehaviour
         
         
         PreventExcessiveSinking();
+        
+        float currentWaveHeight = ocean.GetWaterHeightAt(transform.position.x);
+        float deltaX = transform.position.x - lastWaveX;
+        float deltaTime = Time.fixedDeltaTime;
+        
+        if(deltaX != 0 && deltaTime > 0){
+            waveVelocity = (currentWaveHeight - lastWaveHeight) / deltaX * Mathf.Sign(deltaX) * 5f;
+            waveVelocity = Mathf.Clamp(waveVelocity, -10f, 10f);
+        }
+        
+        lastWaveHeight = currentWaveHeight;
+        lastWaveX = transform.position.x;
     }
     
     void Update(){
@@ -337,4 +356,9 @@ public class StormPhysics : MonoBehaviour
             new Vector3(center.x + objLength * 0.5f, center.y - objDraft, 0)
         );
     }
+
+    public bool InWater => inWater;
+    public float WaveHeightAtPosition(float x) => ocean.GetWaterHeightAt(x);
+    public float WaveSlopeAtPosition(float x) => ocean.GetWaterNormalAt(x).x;
+    public float WaveVelocityAtPosition(float x) => waveVelocity;
 }
