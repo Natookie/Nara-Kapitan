@@ -18,15 +18,15 @@ public class PlayerMovement : MonoBehaviour
     private Vector2 currentVelocity;
     
     [Header("JUMP")]
-    [SerializeField] private float jumpForce = 14f;
+    [SerializeField] private float minJumpForce = 8f;
     [SerializeField] private float maxJumpForce = 20f;
-    [SerializeField] private float jumpHoldIncrement = 40f;
-    [SerializeField] private float maxJumpHoldTime = 0.2f;
+    [SerializeField] private float maxAnticipationTime = 0.3f;
     [SerializeField] private float coyoteTime = 0.1f;
     [SerializeField] private float jumpBufferTime = 0.1f;
     
+    private bool isAnticipating;
+    private float anticipationHoldTime;
     private bool isJumpHeld;
-    private float jumpHoldTimer;
     private float coyoteTimer;
     private float jumpBufferTimer;
     
@@ -209,19 +209,45 @@ public class PlayerMovement : MonoBehaviour
                 return;
             }
             
-            bool canJump = (isGrounded || coyoteTimer > 0) && !isWallSliding && !isDiving;
-            
-            if(canJump && !isJumpHeld) StartJump();
-            else jumpBufferTimer = jumpBufferTime;
+            if((isGrounded || coyoteTimer > 0) && !isWallSliding && !isDiving && !isAnticipating){
+                isAnticipating = true;
+                anticipationHoldTime = 0f;
+                return;
+            }
+            else if(!isGrounded && !isWallSliding && !isDiving){
+                jumpBufferTimer = jumpBufferTime;
+            }
         }
         
-        if(Keyboard.current[Key.Space].isPressed && isJumpHeld && jumpHoldTimer > 0){
-            jumpHoldTimer -= Time.fixedDeltaTime;
+        if(isAnticipating){
+            if(Keyboard.current[Key.Space].isPressed){
+                anticipationHoldTime += Time.deltaTime;
+                
+                if(anticipationHoldTime >= maxAnticipationTime){
+                    anticipationHoldTime = maxAnticipationTime;
+                    PerformJump();
+                    isAnticipating = false;
+                }
+            }
+            else if(Keyboard.current[Key.Space].wasReleasedThisFrame){
+                PerformJump();
+                isAnticipating = false;
+            }
         }
+    }
+    
+    void PerformJump(){
+        float holdRatio = anticipationHoldTime / maxAnticipationTime;
+        float jumpForce = Mathf.Lerp(minJumpForce, maxJumpForce, holdRatio);
         
-        if(Keyboard.current[Key.Space].wasReleasedThisFrame || jumpHoldTimer <= 0){
-            EndJump();
-        }
+        Vector2 currentVel = rb.linearVelocity;
+        currentVel.y = jumpForce;
+        rb.linearVelocity = currentVel;
+        jumpBufferTimer = 0;
+        coyoteTimer = 0;
+        canDive = true;
+        
+        anticipationHoldTime = 0;
     }
     
     void HandleDiveInput(){
@@ -282,30 +308,11 @@ public class PlayerMovement : MonoBehaviour
     void HandleJump(){
         bool canJump = (isGrounded || coyoteTimer > 0) && !isWallSliding;
         
-        if(jumpBufferTimer > 0 && canJump && !isJumpHeld && !isDiving){
-            StartJump();
+        if(jumpBufferTimer > 0 && canJump && !isDiving && !isAnticipating){
+            isAnticipating = true;
+            anticipationHoldTime = 0f;
+            jumpBufferTimer = 0;
         }
-        
-        if(isJumpHeld && jumpHoldTimer > 0){
-            float currentYVelocity = rb.linearVelocity.y;
-            float targetYVelocity = Mathf.Lerp(jumpForce, maxJumpForce, 1f - (jumpHoldTimer / maxJumpHoldTime));
-            
-            if(currentYVelocity < targetYVelocity){
-                float forceToApply = Mathf.Min(jumpHoldIncrement * Time.fixedDeltaTime, targetYVelocity - currentYVelocity);
-                rb.linearVelocity = new Vector2(rb.linearVelocity.x, currentYVelocity + forceToApply);
-            }
-        }
-    }
-    
-    void StartJump(){
-        isJumpHeld = true;
-        jumpHoldTimer = maxJumpHoldTime;
-        Vector2 currentVelocity = rb.linearVelocity;
-        currentVelocity.y = jumpForce;
-        rb.linearVelocity = currentVelocity;
-        jumpBufferTimer = 0;
-        coyoteTimer = 0;
-        canDive = true;
     }
     
     void EndJump() => isJumpHeld = false;
@@ -387,7 +394,7 @@ public class PlayerMovement : MonoBehaviour
     
     void WallJump(){
         Vector2 wallNormal = isWallLeft ? Vector2.right : Vector2.left;
-        wallJumpDirection = new Vector2(wallNormal.x * wallJumpHorizontalForce, wallJumpForce);
+        wallJumpDirection = new Vector2(wallNormal.x * wallJumpHorizontalForce, maxJumpForce);
         
         rb.linearVelocity = Vector2.zero;
         rb.AddForce(wallJumpDirection, ForceMode2D.Impulse);
@@ -423,7 +430,7 @@ public class PlayerMovement : MonoBehaviour
         Vector2 velocity = rb.linearVelocity;
         
         if(velocity.y < 0) velocity += Vector2.up * Physics2D.gravity.y * (fallMultiplier - 1) * Time.fixedDeltaTime;
-        else if(velocity.y > 0 && !isJumpHeld) velocity += Vector2.up * Physics2D.gravity.y * (lowJumpMultiplier - 1) * Time.fixedDeltaTime;
+        else if(velocity.y > 0) velocity += Vector2.up * Physics2D.gravity.y * (lowJumpMultiplier - 1) * Time.fixedDeltaTime;
         
         rb.linearVelocity = velocity;
     }
@@ -436,11 +443,16 @@ public class PlayerMovement : MonoBehaviour
     
     #region PUBLIC METHODS
     public void SetMoveSpeed(float newSpeed) => moveSpeed = newSpeed;
-    public void SetJumpForce(float newJumpForce) => jumpForce = newJumpForce;
+    public void SetJumpForce(float newMinForce, float newMaxForce){
+        minJumpForce = newMinForce;
+        maxJumpForce = newMaxForce;
+    }
     public bool IsGrounded => isGrounded;
     public bool IsWallSliding => isWallSliding;
     public bool IsDashing => isDashing;
     public bool IsDiving => isDiving;
+    public bool IsAnticipating => isAnticipating;
+    public float GetAnticipationRatio() => anticipationHoldTime / maxAnticipationTime;
     public bool CanDive => canDive;
     public Vector2 GetVelocity => rb.linearVelocity;
     public float GetStaminaPercent() => currentStamina / maxStamina;

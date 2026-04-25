@@ -1,7 +1,7 @@
 using UnityEngine;
 
 [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
-public class WaterVisuals : MonoBehaviour
+public class WaterVisual : MonoBehaviour
 {
     [Header("REFERENCES")]
     [SerializeField] private StormyOcean oceanPhysics;
@@ -13,25 +13,7 @@ public class WaterVisuals : MonoBehaviour
     [Space(10)]
     [SerializeField] private float surfaceYPosition = 0f;
     
-    [Header("WATER COLORS")]
-    [SerializeField] private Color surfaceColor = new Color(0.05f, 0.1f, 0.2f, 0.9f);
-    [SerializeField] private Color deepColor = new Color(0.02f, 0.05f, 0.1f, 0.9f);
-    
-    [Header("FOAM TWEAKS")]
-    [SerializeField] private Color foamColor = new Color(0.9f, 0.9f, 1f, 0.8f);
-    [Range(0f, 2f)] public float foamIntensity = 1.0f;
-    [Range(0f, 1f)] public float foamSpread = 0.3f;
-    [Range(0f, 1f)] public float foamSoftness = 0.3f;
-    
-    [Header("DEPTH EFFECT")]
-    [Range(0f, 1f)] public float waveDarkening = 0.5f;
-    [Range(0.5f, 3f)] public float depthGradientPower = 1.5f;
-    
-    [Header("WAVE SHADER")]
-    [Range(0.1f, 2f)] public float waveScale = 0.3f;
-    [Range(0.5f, 3f)] public float waveSpeed = 1.5f;
-    
-    [Header("Performance")]
+    [Header("PERFORMANCE")]
     [Range(1, 4)] public int updateEveryXFrames = 1;
     
     private MeshFilter meshFilter;
@@ -42,66 +24,38 @@ public class WaterVisuals : MonoBehaviour
     private float[] vertexXPositions;
     private int vertexCount;
     
-    private int stormIntensityID;
-    private int customTimeID;
-    private int surfaceColorID;
-    private int deepColorID;
-    private int foamColorID;
-    private int foamIntensityID;
-    private int foamSpreadID;
-    private int waveDarkeningID;
-    private int maxDepthID;
-    private int waveScaleID;
-    private int waveSpeedID;
-    private int depthGradientPowerID;
-    private int foamSoftnessID;
-    private int surfaceLevelID;
-    
     private int frameCount;
-    private float shaderTime;
     private float currentSurfaceLevel;
     
     void Start(){
         meshFilter = GetComponent<MeshFilter>();
         meshRenderer = GetComponent<MeshRenderer>();
         
-        stormIntensityID = Shader.PropertyToID("_StormIntensity");
-        customTimeID = Shader.PropertyToID("_CustomTime");
-        surfaceColorID = Shader.PropertyToID("_SurfaceColor");
-        deepColorID = Shader.PropertyToID("_DeepColor");
-        foamColorID = Shader.PropertyToID("_FoamColor");
-        foamIntensityID = Shader.PropertyToID("_FoamIntensity");
-        foamSpreadID = Shader.PropertyToID("_FoamSpread");
-        waveDarkeningID = Shader.PropertyToID("_WaveDarkening");
-        maxDepthID = Shader.PropertyToID("_MaxDepth");
-        waveScaleID = Shader.PropertyToID("_WaveScale");
-        waveSpeedID = Shader.PropertyToID("_WaveSpeed");
-        depthGradientPowerID = Shader.PropertyToID("_DepthGradientPower");
-        foamSoftnessID = Shader.PropertyToID("_FoamSoftness");
-        surfaceLevelID = Shader.PropertyToID("_SurfaceLevel");
-        
         CreateWaterMesh();
-        SetupShaderMaterial();
         
-        if(oceanPhysics == null) oceanPhysics = FindFirstObjectByType<StormyOcean>();
+        if(oceanPhysics == null)
+            oceanPhysics = FindFirstObjectByType<StormyOcean>();
         
         currentSurfaceLevel = transform.position.y + surfaceYPosition;
     }
     
     void Update(){
         frameCount++;
-        shaderTime += Time.deltaTime;
         
         if(frameCount % updateEveryXFrames != 0) return;
         if(oceanPhysics == null) return;
         
         UpdateWaveVertices();
-        UpdateShaderProperties();
     }
     
     void CreateWaterMesh(){
+        if(mesh != null){
+            if(Application.isPlaying) Destroy(mesh);
+            else DestroyImmediate(mesh);
+        }
+        
         mesh = new Mesh();
-        mesh.name = "StormyOceanMesh";
+        mesh.name = "WaterMesh";
         
         vertexCount = meshResolution + 1;
         vertices = new Vector3[vertexCount * 2];
@@ -110,8 +64,9 @@ public class WaterVisuals : MonoBehaviour
         float localSurfaceY = surfaceYPosition;
         float localBottomY = surfaceYPosition - oceanDepth;
         
-        for(int i = 0; i < vertexCount; i++){
-            float x = Mathf.Lerp(-oceanWidth / 2, oceanWidth / 2, i / (float)meshResolution);
+        for (int i = 0; i < vertexCount; i++){
+            float t = i / (float)meshResolution;
+            float x = Mathf.Lerp(-oceanWidth / 2, oceanWidth / 2, t);
             vertexXPositions[i] = x;
             
             vertices[i] = new Vector3(x, localSurfaceY, 0);
@@ -121,134 +76,112 @@ public class WaterVisuals : MonoBehaviour
         int[] triangles = new int[meshResolution * 6];
         int triIndex = 0;
         
-        for(int i = 0; i < meshResolution; i++){
-            int s0 = i;
-            int s1 = i + 1;
-            int b0 = i + vertexCount;
-            int b1 = i + 1 + vertexCount;
+        for (int i = 0; i < meshResolution; i++){
+            int topLeft = i;
+            int topRight = i + 1;
+            int bottomLeft = i + vertexCount;
+            int bottomRight = i + 1 + vertexCount;
             
-            triangles[triIndex++] = s0;
-            triangles[triIndex++] = s1;
-            triangles[triIndex++] = b0;
+            triangles[triIndex++] = topLeft;
+            triangles[triIndex++] = topRight;
+            triangles[triIndex++] = bottomLeft;
             
-            triangles[triIndex++] = s1;
-            triangles[triIndex++] = b1;
-            triangles[triIndex++] = b0;
+            triangles[triIndex++] = topRight;
+            triangles[triIndex++] = bottomRight;
+            triangles[triIndex++] = bottomLeft;
         }
         
         Vector2[] uvs = new Vector2[vertices.Length];
-        for(int i = 0; i < vertexCount; i++){
+        for (int i = 0; i < vertexCount; i++){
             float u = i / (float)meshResolution;
-            uvs[i] = new Vector2(u, 1.0f);
-            uvs[i + vertexCount] = new Vector2(u, 0.0f);
-        }
-        
-        Vector3[] normals = new Vector3[vertices.Length];
-        for(int i = 0; i < vertexCount; i++){
-            Vector3 normal = Vector3.up;
-            if(i > 0 && i < vertexCount - 1){
-                Vector3 left = vertices[i - 1];
-                Vector3 right = vertices[i + 1];
-                Vector3 slope = right - left;
-                normal = new Vector3(-slope.y, slope.x, 0).normalized;
-            }
-            normals[i] = normal;
-            normals[i + vertexCount] = Vector3.down;
+            uvs[i] = new Vector2(u, 1f);
+            uvs[i + vertexCount] = new Vector2(u, 0f);
         }
         
         mesh.vertices = vertices;
         mesh.uv = uvs;
-        mesh.normals = normals;
         mesh.triangles = triangles;
+        
+        mesh.RecalculateNormals();
         mesh.RecalculateBounds();
         
         meshFilter.mesh = mesh;
     }
     
-    void SetupShaderMaterial(){
-        Material mat = meshRenderer.material;
-        
-        if(mat == null || mat.shader.name != "Custom/StormyWater"){
-            Shader waterShader = Shader.Find("Custom/StormyWater");
-            if(waterShader != null){
-                mat = new Material(waterShader);
-                meshRenderer.material = mat;
-                Debug.Log("Using StormyWater material");
-            }else{
-                Debug.LogWarning("Using Sprites/Default");
-                mat = new Material(Shader.Find("Sprites/Default"));
-                mat.color = surfaceColor;
-                meshRenderer.material = mat;
-                return;
-            }
-        }
-        
-        UpdateShaderProperties();
-    }
-    
     void UpdateWaveVertices(){
         if(oceanPhysics == null || vertices == null) return;
         
-        for(int i = 0; i < vertexCount; i++){
+        for (int i = 0; i < vertexCount; i++){
             float worldX = transform.position.x + vertexXPositions[i];
             float waterHeight = oceanPhysics.GetWaterHeightAt(worldX);
             vertices[i].y = waterHeight - transform.position.y;
         }
         
         mesh.vertices = vertices;
+        
         mesh.RecalculateNormals();
         mesh.RecalculateBounds();
         
-        currentSurfaceLevel = transform.position.y + vertices[vertexCount/2].y;
+        currentSurfaceLevel = transform.position.y + vertices[vertexCount / 2].y;
     }
     
-    void UpdateShaderProperties(){
-        Material mat = meshRenderer.material;
-        if(mat == null) return;
+    public void ForceMeshUpdate(){
+        if(oceanPhysics != null) UpdateWaveVertices();
+    }
+    
+    public float GetSurfaceHeightAt(float localX){
+        if(vertices == null || vertexCount == 0)
+            return surfaceYPosition;
         
-        mat.SetFloat(customTimeID, shaderTime);
+        float t = Mathf.InverseLerp(-oceanWidth / 2, oceanWidth / 2, localX);
+        int index = Mathf.RoundToInt(t * meshResolution);
+        index = Mathf.Clamp(index, 0, vertexCount - 1);
         
-        if(oceanPhysics != null) mat.SetFloat(stormIntensityID, oceanPhysics.GetStormIntensity());
-        
-        mat.SetFloat(maxDepthID, oceanDepth);
-        mat.SetFloat(depthGradientPowerID, depthGradientPower);
-        
-        mat.SetFloat(surfaceLevelID, currentSurfaceLevel);
-        
-        mat.SetColor(surfaceColorID, surfaceColor);
-        mat.SetColor(deepColorID, deepColor);
-        mat.SetColor(foamColorID, foamColor);
-        
-        mat.SetFloat(foamIntensityID, foamIntensity);
-        mat.SetFloat(foamSpreadID, foamSpread);
-        mat.SetFloat(foamSoftnessID, foamSoftness);
-        
-        mat.SetFloat(waveDarkeningID, waveDarkening);
-        mat.SetFloat(waveScaleID, waveScale);
-        mat.SetFloat(waveSpeedID, waveSpeed);
+        return vertices[index].y;
+    }
+    
+    public Vector3 GetSurfacePointAt(float localX) => transform.position + new Vector3(localX, GetSurfaceHeightAt(localX), 0);
+    public Vector2 GetWaterXRange() => new Vector2(-oceanWidth / 2f, oceanWidth / 2f);
+    public Vector2 GetWaterDimensions() => new Vector2(oceanWidth, oceanDepth);
+    public float GetCurrentSurfaceLevel() => currentSurfaceLevel;
+    
+    public void SetResolution(int resolution){
+        meshResolution = Mathf.Clamp(resolution, 50, 500);
+        CreateWaterMesh();
+    }
+    
+    public void SetDimensions(float width, float depth){
+        oceanWidth = width;
+        oceanDepth = depth;
+        CreateWaterMesh();
     }
     
     #if UNITY_EDITOR
-    [ContextMenu("Apply Gradient")]
-    void ApplySmoothGradientPreset(){
-        surfaceColor = new Color(0.05f, 0.1f, 0.2f, 0.9f);
-        deepColor = new Color(0.02f, 0.05f, 0.1f, 0.9f);
-        foamColor = new Color(0.9f, 0.9f, 1f, 0.7f);
-        foamIntensity = 0.8f;
-        foamSpread = 0.4f;
-        foamSoftness = 0.4f;
-        waveDarkening = 0.3f;
-        depthGradientPower = 1.2f;
-        waveScale = 0.25f;
-        waveSpeed = 1.2f;
-        
-        UpdateShaderProperties();
+    void OnValidate(){
+        if(!Application.isPlaying && meshFilter != null && meshFilter.sharedMesh != null){
+            UnityEditor.EditorApplication.delayCall += () =>{
+                if(this != null && meshFilter != null)
+                    CreateWaterMesh();
+            };
+        }
     }
     
-    [ContextMenu("Reset Mesh")]
-    void CreateResetMesh(){
-        CreateWaterMesh();
-        SetupShaderMaterial();
+    void OnDrawGizmosSelected(){
+        if(!Application.isPlaying) return;
+        
+        Gizmos.color = new Color(0, 0.5f, 1f, 0.3f);
+        Vector3 center = transform.position + new Vector3(0, surfaceYPosition - oceanDepth / 2, 0);
+        Vector3 size = new Vector3(oceanWidth, oceanDepth, 0.1f);
+        Gizmos.DrawWireCube(center, size);
+        
+        if(vertices != null && vertexCount > 0){
+            Gizmos.color = Color.cyan;
+            for (int i = 0; i < vertexCount - 1; i++){
+                Vector3 p1 = transform.position + new Vector3(vertexXPositions[i], vertices[i].y, 0);
+                Vector3 p2 = transform.position + new Vector3(vertexXPositions[i + 1], vertices[i + 1].y, 0);
+                Gizmos.DrawLine(p1, p2);
+            }
+        }
     }
     #endif
 }
