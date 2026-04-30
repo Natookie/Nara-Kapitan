@@ -19,14 +19,16 @@ public class PlayerAnimationManager : MonoBehaviour
     
     [Header("TRANSITION SETTINGS")]
     [SerializeField] private float landAnimationLength = 0.2f;
+    [SerializeField] private float jumpToFallThreshold = 0.8f;
     
-    private string currentState;
+    public string currentState;
     private bool wasGroundedLastFrame;
     private bool wasJumping;
     private float landTimer;
     private bool isLanding;
     private float lastHorizontalInput;
     private bool wasAnticipating;
+    private bool isInJumpState;
     
     void Start(){
         if(playerMovement == null) playerMovement = GetComponent<PlayerMovement>();
@@ -35,6 +37,7 @@ public class PlayerAnimationManager : MonoBehaviour
         
         wasGroundedLastFrame = playerMovement.IsGrounded;
         wasAnticipating = false;
+        isInJumpState = false;
     }
     
     void Update(){
@@ -52,6 +55,14 @@ public class PlayerAnimationManager : MonoBehaviour
         float verticalVelocity = playerMovement.GetVelocity.y;
         bool isAnticipating = playerMovement.IsAnticipating;
         
+        animator.SetBool("IsGrounded", isGrounded);
+        animator.SetBool("IsMoving", isMoving);
+        
+        if(!isInJumpState){
+            animator.SetBool("ShouldJump", false);
+            animator.SetBool("ShouldFall", false);
+        }
+        
         if(isAnticipating){
             if(!wasAnticipating){
                 ChangeAnimationState(anticipationState);
@@ -60,15 +71,16 @@ public class PlayerAnimationManager : MonoBehaviour
             return;
         }
         else{
-            wasAnticipating = false;
+            if(wasAnticipating){
+                wasAnticipating = false;
+                animator.SetBool("ShouldJump", true);
+            }
         }
         
         if(isLanding){
             landTimer -= Time.deltaTime;
             if(landTimer <= 0){
                 isLanding = false;
-                if(isMoving) ChangeAnimationState(runState);
-                else ChangeAnimationState(idleState);
             }
             return;
         }
@@ -77,18 +89,29 @@ public class PlayerAnimationManager : MonoBehaviour
             isLanding = true;
             landTimer = landAnimationLength;
             ChangeAnimationState(landState);
+            isInJumpState = false;
+            animator.SetBool("ShouldFall", false);
             return;
         }
         
         if(!isGrounded){
             if(verticalVelocity > 0.1f){
-                if(!wasJumping){
-                    ChangeAnimationState(jumpState);
+                if(!wasJumping && !isInJumpState){
                     wasJumping = true;
+                    isInJumpState = true;
                 }
             }
             else if(verticalVelocity <= 0.1f){
-                if(wasJumping || currentState != fallState){
+                if(isInJumpState){
+                    AnimatorStateInfo stateInfo = animator.GetCurrentAnimatorStateInfo(0);
+                    float normalizedTime = stateInfo.normalizedTime % 1f;
+                    
+                    if(normalizedTime >= jumpToFallThreshold){
+                        animator.SetBool("ShouldFall", true);
+                        wasJumping = false;
+                    }
+                }
+                else if(currentState != fallState){
                     ChangeAnimationState(fallState);
                     wasJumping = false;
                 }
@@ -96,9 +119,13 @@ public class PlayerAnimationManager : MonoBehaviour
         }
         else{
             wasJumping = false;
+            isInJumpState = false;
+            animator.SetBool("ShouldFall", false);
             
-            if(isMoving) ChangeAnimationState(runState);
-            else ChangeAnimationState(idleState);
+            if(currentState != idleState && currentState != runState && !isLanding){
+                if(isMoving) ChangeAnimationState(runState);
+                else ChangeAnimationState(idleState);
+            }
         }
     }
     
@@ -107,9 +134,6 @@ public class PlayerAnimationManager : MonoBehaviour
         
         if(Mathf.Abs(horizontalInput) > 0.1f) lastHorizontalInput = horizontalInput;
         float facingDirection = (Mathf.Abs(horizontalInput) > 0.1f) ? horizontalInput : lastHorizontalInput;
-        
-        // if(facingDirection < 0) playerTransform.localScale = new Vector3(-1, 1, 1);
-        // else if(facingDirection > 0) playerTransform.localScale = new Vector3(1, 1, 1);
     }
     
     float GetHorizontalInput(){
@@ -121,17 +145,28 @@ public class PlayerAnimationManager : MonoBehaviour
     
     void ChangeAnimationState(string newState){
         if(currentState == newState) return;
+        
+        if(currentState == anticipationState && (newState == idleState || newState == runState)){
+            return;
+        }
+        
+        if((currentState == jumpState || currentState == fallState) && (newState == idleState || newState == runState)){
+            if(!playerMovement.IsGrounded) return;
+        }
+        
         animator.Play(newState);
         currentState = newState;
     }
     
     #region PUBLIC METHODS
     public void ForceIdle(){
-        if(!isLanding) ChangeAnimationState(idleState);
+        if(!isLanding && currentState != anticipationState) 
+            ChangeAnimationState(idleState);
     }
     
     public void ForceRun(){
-        if(!isLanding) ChangeAnimationState(runState);
+        if(!isLanding && currentState != anticipationState) 
+            ChangeAnimationState(runState);
     }
     
     public void ForceAnticipation(){
@@ -146,6 +181,7 @@ public class PlayerAnimationManager : MonoBehaviour
             ChangeAnimationState(jumpState);
             wasJumping = true;
             wasAnticipating = false;
+            isInJumpState = true;
         }
     }
     
@@ -154,6 +190,7 @@ public class PlayerAnimationManager : MonoBehaviour
             ChangeAnimationState(fallState);
             wasJumping = false;
             wasAnticipating = false;
+            isInJumpState = false;
         }
     }
     

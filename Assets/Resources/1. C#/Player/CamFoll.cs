@@ -10,13 +10,11 @@ public class CamFoll : MonoBehaviour
     [SerializeField] private float minDistanceFromPlayer = 0.5f;
     [SerializeField] private float maxDistanceFromPlayer = 3f;
     
+    [Header("LINE RENDERER")]
+    [SerializeField] private float lineLength = 10f;
+
     [Header("INPUT")]
     [SerializeField] private float cursorInfluenceRadius = 100f;
-
-    [Header("LINE RENDERER")]
-    [SerializeField] private Color lineColor = Color.white;
-    [SerializeField] private float lineWidth = 0.1f;
-    [SerializeField] private float lineLength = 100f;
 
     [Header("REFERENCES")]
     [SerializeField] private Transform playerTransform;
@@ -24,21 +22,6 @@ public class CamFoll : MonoBehaviour
     [SerializeField] private LineRenderer lineRenderer;
     
     private Vector3 offset;
-
-    void Awake(){
-        SetupLineRenderer();
-    }
-
-    void SetupLineRenderer(){
-        if(lineRenderer != null){
-            lineRenderer.startColor = lineColor;
-            lineRenderer.endColor = lineColor;
-            lineRenderer.startWidth = lineWidth;
-            lineRenderer.endWidth = lineWidth;
-            lineRenderer.positionCount = 2;
-            lineRenderer.useWorldSpace = true;
-        }
-    }
 
     void LateUpdate(){
         if(playerTransform == null || thisCam == null) return;

@@ -16,6 +16,9 @@ public class PlayerMovement : MonoBehaviour
     
     private float horizontalInput;
     private Vector2 currentVelocity;
+
+    private float fallTimer = 0f;
+    private bool wasFalling = false;
     
     [Header("JUMP")]
     [SerializeField] private float minJumpForce = 8f;
@@ -82,6 +85,8 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private LayerMask groundLayer;
     
     [Header("REFERENCES")]
+    [SerializeField] private PlayerShooting playerShooting;
+    [SerializeField] private PlayerAnimationManager animManager;
     [SerializeField] private Rigidbody2D rb;
     [SerializeField] private SpriteRenderer sr;
     [SerializeField] private Camera mainCamera;
@@ -120,9 +125,14 @@ public class PlayerMovement : MonoBehaviour
         Bounds spriteBounds = sr.bounds;
         
         Vector2 groundCheckPos = new Vector2(transform.position.x, spriteBounds.min.y);
-        float groundCheckRadius = 0.2f;
+        float groundCheckRadius = 0.35f;
         isGrounded = Physics2D.OverlapCircle(groundCheckPos, groundCheckRadius, groundLayer);
         
+        if(!isGrounded){
+            RaycastHit2D hit = Physics2D.Raycast(groundCheckPos, Vector2.down, 0.5f, groundLayer);
+            isGrounded = hit.collider != null;
+        }
+
         Vector2 leftCheckPos = new Vector2(spriteBounds.min.x, transform.position.y);
         Vector2 rightCheckPos = new Vector2(spriteBounds.max.x, transform.position.y);
         
@@ -278,6 +288,27 @@ public class PlayerMovement : MonoBehaviour
     
     #region MOVEMENT LOGIC
     void HandleMovement(){
+        bool isFalling = !isGrounded && rb.linearVelocity.y < -0.5f;
+        
+        if(isFalling){
+            if(!wasFalling){
+                fallTimer = 0f;
+                wasFalling = true;
+            }
+            fallTimer += Time.fixedDeltaTime;
+        }
+        else{
+            wasFalling = false;
+            fallTimer = 0f;
+        }
+        
+        bool restrictMovement = false;
+        if(animManager != null && animManager.IsPlayingLandAnimation() && fallTimer > 3f) restrictMovement = true;
+        if(restrictMovement){
+            rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
+            return;
+        }
+
         float targetSpeed = horizontalInput * moveSpeed;
         currentVelocity = rb.linearVelocity;
         
@@ -292,7 +323,8 @@ public class PlayerMovement : MonoBehaviour
             if(Mathf.Sign(horizontalInput) != Mathf.Sign(currentVelocity.x)){
                 currentVelocity.x += speedDiff * turnSpeed * Time.fixedDeltaTime;
             }
-        }else{
+        }
+        else{
             currentVelocity.x = Mathf.MoveTowards(currentVelocity.x, 0, decelerationRate * Time.fixedDeltaTime);
         }
         
@@ -338,6 +370,7 @@ public class PlayerMovement : MonoBehaviour
     #region DASH LOGIC
     void TryDash(){
         if(currentStamina < dashStaminaCost) return;
+        if(playerShooting != null && playerShooting.IsAiming) return;
         
         Vector2 mousePos = Mouse.current.position.ReadValue();
         Vector3 worldMousePos = mainCamera.ScreenToWorldPoint(new Vector3(mousePos.x, mousePos.y, mainCamera.nearClipPlane));
@@ -442,6 +475,7 @@ public class PlayerMovement : MonoBehaviour
     #endregion
     
     #region PUBLIC METHODS
+    public float GetMoveSpeed() => moveSpeed;
     public void SetMoveSpeed(float newSpeed) => moveSpeed = newSpeed;
     public void SetJumpForce(float newMinForce, float newMaxForce){
         minJumpForce = newMinForce;
@@ -458,5 +492,6 @@ public class PlayerMovement : MonoBehaviour
     public float GetStaminaPercent() => currentStamina / maxStamina;
     public bool CanDash => canDash;
     public int AirDashCount => airDashCount;
+
     #endregion
 }

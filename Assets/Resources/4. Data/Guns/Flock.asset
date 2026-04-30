@@ -12,15 +12,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5f0ca95111c549845971f39eaa135379, type: 3}
   m_Name: Flock
   m_EditorClassIdentifier: Assembly-CSharp::GunData
-  gunName: Gun
+  gunName: Flintlock
   damage: 10
   fireRate: 0.2
-  magazineSize: 30
+  magazineSize: 1
+  maxReserveAmmo: 90
   reloadTime: 1.5
-  bulletSpeed: 20
+  bulletSpeed: 50
   spread: 0.1
   pelletCount: 1
-  automatic: 1
+  automatic: 0
   bulletPrefab: {fileID: 3323721536984429975, guid: 2fa6d2ae1cad17842920dbdf233d3cee, type: 3}
   fireSound: {fileID: 0}
   reloadSound: {fileID: 0}

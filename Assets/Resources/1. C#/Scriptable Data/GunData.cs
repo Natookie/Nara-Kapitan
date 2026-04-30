@@ -8,6 +8,7 @@ public class GunData : ScriptableObject
     public float damage = 10f;
     public float fireRate = 0.2f;
     public int magazineSize = 30;
+    public int maxReserveAmmo = 90;
     public float reloadTime = 1.5f;
     
     [Header("ADVANCED")]

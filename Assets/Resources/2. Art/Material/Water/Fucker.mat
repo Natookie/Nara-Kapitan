@@ -11,8 +11,12 @@ Material:
   m_Shader: {fileID: 4800000, guid: e4f66dac9823fde44bf062119ee18643, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
-  m_ValidKeywords: []
-  m_InvalidKeywords: []
+  m_ValidKeywords:
+  - _CIRCLESCROLLDIRECTION_RIGHTTOLEFT
+  m_InvalidKeywords:
+  - _CIRCLEDIRECTION_LEFTTORIGHT
+  - _SCROLLDIRECTION_BOTH
+  - _WATERSCROLLDIRECTION_BOTHHORIZONTAL
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
@@ -22,19 +26,48 @@ Material:
   m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
-    m_TexEnvs: []
+    m_TexEnvs:
+    - _BaseMap:
+        m_Texture: {fileID: 2800000, guid: dffef66376be4fa480fb02b19edbe903, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _NormalMap:
+        m_Texture: {fileID: 2800000, guid: 9b0c4aed33dc7664ba177adaa262476a, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _CircleDensity: 0.3
-    - _CircleSize: 0.05
-    - _NoiseIntensity: 0.5
-    - _NoiseScale: 2
-    - _OutlineWidth: 0.02
+    - _CircleDensity: 0.63
+    - _CircleDirection: 1
+    - _CircleGridSize: 5
+    - _CircleScrollDirection: 0
+    - _CircleScrollSpeed: 0.63
+    - _CircleScrollWithNoise: 1
+    - _CircleSize: 0.116
+    - _Cull: 0
+    - _DstBlend: 10
+    - _Metallic: 0.1
+    - _NoiseIntensity: 0.13
+    - _NoiseScale: 4.07
+    - _NormalStrength: 1.31
+    - _OutlineWidth: 0.01
+    - _ReflectionStrength: 0.3
+    - _RefractionStrength: 0.2
+    - _ScrollDirection: 3
     - _ScrollSpeed: 0.5
+    - _Smoothness: 0.6
+    - _SpecularHighlight: 1
+    - _SrcBlend: 5
+    - _WaterScrollDirection: 4
+    - _WaveAmplitude: 0.06
+    - _WaveFrequency: 1.7
+    - _ZTest: 4
     m_Colors:
-    - _CircleColor: {r: 0.8, g: 0.9, b: 1, a: 0.6}
-    - _OutlineColor: {r: 0.049999982, g: 0.19999996, b: 0.39999998, a: 1}
-    - _WaterBottomColor: {r: 0.09999997, g: 0.29999998, b: 0.5, a: 1}
-    - _WaterTopColor: {r: 0.19999996, g: 0.6, b: 0.8, a: 1}
+    - _CircleBottomColor: {r: 0.024519408, g: 0.034252193, b: 0.1792453, a: 1}
+    - _CircleColor: {r: 0.18431373, g: 0.25519451, b: 0.30588236, a: 0.6}
+    - _CircleTopColor: {r: 0.15379138, g: 0.25647154, b: 0.33962262, a: 0.8}
+    - _OutlineColor: {r: 0.27874687, g: 0.29554015, b: 0.33962262, a: 1}
+    - _WaterBottomColor: {r: 0.017621929, g: 0.09297786, b: 0.16981131, a: 1}
+    - _WaterTopColor: {r: 0.007320225, g: 0.15070288, b: 0.2216981, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

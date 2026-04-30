@@ -16,15 +16,11 @@ public class BuoyancyPhysics : MonoBehaviour
     [Range(0f, 1f)] [Tooltip("How much boat follows wave tilt. 0 = flat, 1 = matches wave slope")] public float waveFollowStrength = 0.8f;
     [Range(0f, 1f)] [Tooltip("How quickly boat returns to neutral. 0 = never, 1 = instant")] public float selfRightingStrength = 0.3f;
     
-    [Header("WAVE FOLLOW")]
-    [SerializeField] [Tooltip("How fast boat rises/falls to match waves")] private float waveFollowSpeed = 4f;
-    [SerializeField] [Tooltip("Smoother height changes. Higher = snappier")] private float heightSmoothing = 0.2f;
-    [SerializeField] [Tooltip("Boat stays glued to wave surface instead of physics falling")] private bool snapToWaveSurface = true;
-    
     [Header("WAVE FORCES")]
     [SerializeField] [Tooltip("How much wave slope pushes boat sideways")] private float horizontalForceMultiplier = 0.3f;
     [SerializeField] [Tooltip("How much wave curvature pushes boat up/down")] private float verticalForceMultiplier = 0.5f;
     [SerializeField] [Tooltip("Random water chop that shakes the boat")] private float turbulenceStrength = 0.3f;
+    [SerializeField] [Tooltip("How strongly waves pull boat to surface")] private float waveAttractionStrength = 3f;
     
     [Header("PHYSICS")]
     [SerializeField] [Tooltip("Gravity strength. Lower = floatier feeling")] private float gravityMultiplier = 0.5f;
@@ -56,8 +52,6 @@ public class BuoyancyPhysics : MonoBehaviour
     public bool showWaveNormals = false;
     
     private StormyOcean ocean;
-    private float targetHeight;
-    private float currentHeight;
     private bool inWater = true;
     private Vector2[] buoyancyPoints;
     private float originalDrag;
@@ -74,6 +68,9 @@ public class BuoyancyPhysics : MonoBehaviour
     private float cachedHeight;
     private float cachedDraft;
     private Vector3 lastScale;
+    
+    private float currentHeightVelocity;
+    private float targetWaterHeight;
     
     void Start(){
         ocean = FindFirstObjectByType<StormyOcean>();
@@ -92,10 +89,10 @@ public class BuoyancyPhysics : MonoBehaviour
         
         rb.gravityScale = gravityMultiplier;
         
-        targetHeight = ocean.GetWaterHeightAt(transform.position.x);
-        currentHeight = targetHeight;
+        targetWaterHeight = ocean.GetWaterHeightAt(transform.position.x) + cachedDraft;
+        currentHeightVelocity = 0;
         
-        lastWaveHeight = targetHeight;
+        lastWaveHeight = targetWaterHeight;
         lastWaveX = transform.position.x;
         lastScale = transform.localScale;
         
@@ -173,12 +170,13 @@ public class BuoyancyPhysics : MonoBehaviour
         cachedHeight = objHeight * transform.localScale.y;
         cachedDraft = objDraft * transform.localScale.y;
         
+        UpdateTargetWaterHeight();
         CheckWaterStatus();
         ApplyBuoyancy();
         ApplyWaveRotation();
         ApplyStabilization();
         ApplyWaveForces();
-        FollowWaveSurface();
+        ApplySmoothWaveFollowing();
         
         PreventExcessiveSinking();
         
@@ -198,6 +196,19 @@ public class BuoyancyPhysics : MonoBehaviour
             Vector2 waveNormal = ocean.GetWaterNormalAt(transform.position.x);
             Debug.DrawRay(transform.position, waveNormal * 2f, Color.magenta);
         }
+    }
+    
+    void UpdateTargetWaterHeight(){
+        float totalHeight = 0f;
+        int sampleCount = 0;
+        
+        for(int i = 0;i < buoyancyPoints.Length;i++){
+            float pointHeight = ocean.GetWaterHeightAt(transform.TransformPoint(buoyancyPoints[i]).x);
+            totalHeight += pointHeight;
+            sampleCount++;
+        }
+        
+        targetWaterHeight = (totalHeight / sampleCount) + cachedDraft;
     }
     
     void CheckWaterStatus(){
@@ -260,13 +271,35 @@ public class BuoyancyPhysics : MonoBehaviour
         }
     }
     
+    void ApplySmoothWaveFollowing(){
+        if(!inWater) return;
+        
+        float heightDifference = targetWaterHeight - transform.position.y;
+        float springForce = heightDifference * waveAttractionStrength;
+        float dampingForce = -currentHeightVelocity * buoyancyDamping;
+        float acceleration = springForce + dampingForce;
+        
+        currentHeightVelocity += acceleration * Time.fixedDeltaTime;
+        currentHeightVelocity = Mathf.Clamp(currentHeightVelocity, -5f, 5f);
+        
+        Vector2 currentVel = rb.linearVelocity;
+        currentVel.y += currentHeightVelocity * Time.fixedDeltaTime * 2f;
+        rb.linearVelocity = currentVel;
+        
+        if(showDebug){
+            Debug.DrawLine(transform.position, new Vector3(transform.position.x, targetWaterHeight, 0), Color.cyan);
+            Debug.DrawLine(new Vector3(transform.position.x - cachedLength * 0.25f, targetWaterHeight - cachedDraft, 0),
+                         new Vector3(transform.position.x + cachedLength * 0.25f, targetWaterHeight - cachedDraft, 0),
+                         Color.white);
+        }
+    }
+    
     void ApplyWaveRotation(){
         if(!inWater) return;
         
         Vector2 waveNormal = ocean.GetWaterNormalAt(transform.position.x);
         
         float targetAngle = -waveNormal.x * maxTiltAngle * ocean.GetStormIntensity();
-        
         targetAngle = Mathf.Clamp(targetAngle, -maxTiltAngle, maxTiltAngle);
         
         float currentAngle = transform.eulerAngles.z;
@@ -278,9 +311,7 @@ public class BuoyancyPhysics : MonoBehaviour
         finalTargetAngle += neutralPull * Time.fixedDeltaTime;
         
         float angleDifference = Mathf.DeltaAngle(currentAngle, finalTargetAngle);
-        
         float torque = angleDifference * stabilizationForce;
-        
         torque -= rb.angularVelocity * angularDamping;
         
         rb.AddTorque(torque);
@@ -318,37 +349,6 @@ public class BuoyancyPhysics : MonoBehaviour
         rb.AddForce(turbulenceForce);
         
         if(showDebug) Debug.DrawRay(transform.position, waveNormal * 2f, Color.yellow);
-    }
-    
-    void FollowWaveSurface(){
-        if(!inWater || !snapToWaveSurface) return;
-        
-        float totalHeight = 0f;
-        int sampleCount = 0;
-        
-        for(int i = 0;i < buoyancyPoints.Length;i++){
-            float pointHeight = ocean.GetWaterHeightAt(transform.TransformPoint(buoyancyPoints[i]).x);
-            totalHeight += pointHeight;
-            sampleCount++;
-        }
-        
-        targetHeight = totalHeight / sampleCount;
-        targetHeight += cachedDraft;
-        currentHeight = Mathf.Lerp(currentHeight, targetHeight, heightSmoothing);
-        
-        float currentHeightDiff = currentHeight - transform.position.y;
-        float verticalVelocity = currentHeightDiff * waveFollowSpeed;
-        
-        Vector2 currentVel = rb.linearVelocity;
-        currentVel.y = Mathf.Lerp(currentVel.y, verticalVelocity, Time.fixedDeltaTime * 5f);
-        rb.linearVelocity = currentVel;
-        
-        if(showDebug){
-            Debug.DrawLine(transform.position, new Vector3(transform.position.x, targetHeight, 0), Color.cyan);
-            Debug.DrawLine(new Vector3(transform.position.x - cachedLength * 0.25f, targetHeight - cachedDraft, 0),
-                         new Vector3(transform.position.x + cachedLength * 0.25f, targetHeight - cachedDraft, 0),
-                         Color.white);
-        }
     }
     
     void PreventExcessiveSinking(){
