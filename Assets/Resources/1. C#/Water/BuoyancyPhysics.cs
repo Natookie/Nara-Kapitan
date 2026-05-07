@@ -1,450 +1,331 @@
 using UnityEngine;
+using NaughtyAttributes;
+using System.Collections.Generic;
 
 public class BuoyancyPhysics : MonoBehaviour
 {
-    [Header("BUOYANCY")]
-    [SerializeField] [Tooltip("How strongly water pushes up. Higher = more floaty")] private float buoyancyForce = 12f;
-    [SerializeField] [Tooltip("Smooths out bobbing. Prevents springy bouncing")] private float buoyancyDamping = 5f;
-    [SerializeField] [Tooltip("Resistance when moving through water")] private float waterDrag = 4f;
-    [SerializeField] [Tooltip("Resistance when spinning in water")] private float waterAngularDrag = 3f;
-    [Range(0f, 1f)] [Tooltip("How much of the boat sits underwater. 0.3 = 30% submerged")] public float targetSubmersion = 0.5f;
-    
-    [Header("STABILIZATION")]
-    [SerializeField] [Tooltip("How hard the boat fights to stay level")] private float stabilizationForce = 8f;
-    [SerializeField] [Tooltip("Rotational resistance. Higher = stiffer")] private float angularDamping = 5f;
-    [SerializeField] [Tooltip("Max lean angle before boat tips too much")] private float maxTiltAngle = 45f;
-    [Range(0f, 1f)] [Tooltip("How much boat follows wave tilt. 0 = flat, 1 = matches wave slope")] public float waveFollowStrength = 0.8f;
-    [Range(0f, 1f)] [Tooltip("How quickly boat returns to neutral. 0 = never, 1 = instant")] public float selfRightingStrength = 0.3f;
-    
-    [Header("WAVE FORCES")]
-    [SerializeField] [Tooltip("How much wave slope pushes boat sideways")] private float horizontalForceMultiplier = 0.3f;
-    [SerializeField] [Tooltip("How much wave curvature pushes boat up/down")] private float verticalForceMultiplier = 0.5f;
-    [SerializeField] [Tooltip("Random water chop that shakes the boat")] private float turbulenceStrength = 0.3f;
-    [SerializeField] [Tooltip("How strongly waves pull boat to surface")] private float waveAttractionStrength = 3f;
-    
-    [Header("PHYSICS")]
-    [SerializeField] [Tooltip("Gravity strength. Lower = floatier feeling")] private float gravityMultiplier = 0.5f;
-    [SerializeField] [Tooltip("Resistance when flying through air")] private float airDrag = 0.1f;
-    [SerializeField] [Tooltip("Resistance when spinning in air")] private float airAngularDrag = 0.5f;
-    
-    [Header("IMPACT FORCES")]
-    [SerializeField] [Tooltip("How hard waves/objects smack the boat")] private float impactForceMultiplier = 2f;
-    [SerializeField] [Tooltip("How quickly impact forces fade out")] private float impactDamping = 0.8f;
-    
-    [Header("DIMENSIONS")]
-    [SerializeField] [Tooltip("Auto-detect size from sprite/renderer bounds")] private bool autoDetectBounds = true;
-    [SerializeField] [Tooltip("Length of boat from tip to tail (if auto-detect is off)")] private float objLength = 2f;
-    [SerializeField] [Tooltip("Total height from bottom to top (if auto-detect is off)")] private float objHeight = 0.5f;
-    [SerializeField] [Tooltip("How deep hull sits underwater (if auto-detect is off)")] private float objDraft = 0.2f;
-    [SerializeField] [Tooltip("Offset from bottom center for buoyancy points")] private float buoyancyOffsetY = 0f;
-    
-    [Header("REFERENCES")]
-    [SerializeField] [Tooltip("Drag your boat's Rigidbody2D here")] private Rigidbody2D rb;
-    [SerializeField] [Tooltip("Optional: Sprite renderer for auto bounds")] private SpriteRenderer spriteRenderer;
-    [SerializeField] [Tooltip("Optional: Collider for auto bounds fallback")] private Collider2D boundsCollider;
+    [Foldout("BUOYANCY")][SerializeField] [Tooltip("How strongly water pushes up. Higher = more floaty. Recommended: 500-1500 for large boats")] private float buoyancyForce = 25f;
+    [Foldout("BUOYANCY")][SerializeField] [Tooltip("Smooths out bobbing motion. Higher = less springy")] private float buoyancyDamping = 3f;
+    [Foldout("BUOYANCY")][SerializeField] [Tooltip("Resistance when moving through water. Higher = slower movement")] private float waterDrag = 2f;
+    [Foldout("BUOYANCY")][SerializeField] [Tooltip("Resistance when spinning in water. Higher = less rotation")] private float waterAngularDrag = 1.5f;
+    [Foldout("BUOYANCY")][Range(0f, 1f)] [Tooltip("How much of the boat sits underwater. 0.3 = 30% submerged")] public float targetSubmersion = 0.4f;
 
-    [Header("DEBUG")]
-    [Tooltip("Draws buoyancy points and boat outline")]
-    public bool showDebug = false;
-    [Tooltip("Shows water level lines at each buoyancy point")]
-    public bool showSubmersion = false;
-    [Tooltip("Shows wave normal lines")]
-    public bool showWaveNormals = false;
+    [Foldout("WAVE RIDING")][SerializeField] [Tooltip("How strongly the boat follows wave slopes. Higher = more tilt")] private float waveFollowStrength = 1.2f;
+    [Foldout("WAVE RIDING")][SerializeField] [Tooltip("Multiplier for wave rotation torque. Higher = more dramatic tilting")] private float waveTorqueMultiplier = 2f;
+    [Foldout("WAVE RIDING")][SerializeField] [Tooltip("Maximum angle the boat can tilt (degrees)")] private float maxTiltAngle = 35f;
+    [Foldout("WAVE RIDING")][SerializeField] [Tooltip("How quickly boat returns to level. Higher = faster self-correction")] private float selfRightingStrength = 0.5f;
+
+    [Foldout("CHAOS FORCES")][SerializeField] [Tooltip("How strongly waves push boat sideways")] private float horizontalWavePush = 1.5f;
+    [Foldout("CHAOS FORCES")][SerializeField] [Tooltip("How strongly wave curvature lifts/drops the boat")] private float verticalWavePush = 1.2f;
+    [Foldout("CHAOS FORCES")][SerializeField] [Tooltip("Random water chop intensity. Higher = more chaotic bobbing")] private float chopIntensity = 1.2f;
+    [Foldout("CHAOS FORCES")][SerializeField] [Tooltip("How strongly boat is pulled to wave surface")] private float waveAttraction = 8f;
+
+    [Foldout("PHYSICS")][SerializeField] [Tooltip("Gravity strength. Lower = floatier feeling. 0 = no gravity, 1 = normal")] private float gravityScale = 0.3f;
+    [Foldout("PHYSICS")][SerializeField] [Tooltip("Resistance when boat is flying through air")] private float airDrag = 0.3f;
+    [Foldout("PHYSICS")][SerializeField] [Tooltip("Rotation resistance when boat is in air")] private float airAngularDrag = 0.8f;
+    [Foldout("PHYSICS")][SerializeField] [Tooltip("Boat weight in kilograms. Heavier = harder to lift")] private float mass = 800f;
+
+    [Foldout("DIMENSIONS")][SerializeField] [Tooltip("Automatically detect size from sprite/collider bounds")] private bool autoDetectBounds = true;
+    [Foldout("DIMENSIONS")][SerializeField] [Tooltip("Distance from LEFT to RIGHT edge of boat (world units)")] private float boatLength = 3f;
+    [Foldout("DIMENSIONS")][SerializeField] [Tooltip("Distance from BOTTOM to TOP edge of boat (world units)")] private float boatHeight = 1.2f;
+    [Foldout("DIMENSIONS")][SerializeField] [Tooltip("How deep the hull sits underwater (from bottom edge)")] private float draftDepth = 0.4f;
+    [Foldout("DIMENSIONS")][SerializeField] [Tooltip("Number of buoyancy calculation points along boat length. More = smoother but heavier")] private int buoyancyPointCount = 5;
+
+    [Foldout("VISUAL")][SerializeField] [Tooltip("Show debug lines and gizmos in scene view")] private bool showDebug = true;
+    [Foldout("VISUAL")][SerializeField] [Tooltip("Show water line visual effect")] private bool showWaterLine = true;
+    [Foldout("VISUAL")][SerializeField] [Tooltip("Color of the water line visual")] private Color waterLineColor = Color.cyan;
+
+    [Required, Foldout("REFERENCES")][SerializeField] private Rigidbody2D rb;
+    [Required, Foldout("REFERENCES")][SerializeField] private SpriteRenderer spriteRenderer;
+    [Required, Foldout("REFERENCES")][SerializeField] private Collider2D boundsCollider;
     
     private StormyOcean ocean;
     private bool inWater = true;
     private Vector2[] buoyancyPoints;
-    private float originalDrag;
-    private float originalAngularDrag;
-    
-    private Vector2[] debugWaterLevels;
-    private float[] debugSubmersionDepths;
-    
-    private float lastWaveHeight;
-    private float lastWaveX;
-    private float waveVelocity;
+    private LineRenderer waterLineRenderer;
     
     private float cachedLength;
     private float cachedHeight;
     private float cachedDraft;
     private Vector3 lastScale;
-    
+    private float lastWaveHeight;
+    private float waveVelocity;
     private float currentHeightVelocity;
-    private float targetWaterHeight;
-    
+
     void Start(){
         ocean = FindFirstObjectByType<StormyOcean>();
-        
         if(spriteRenderer == null) spriteRenderer = GetComponent<SpriteRenderer>();
         if(boundsCollider == null) boundsCollider = GetComponent<Collider2D>();
         
-        originalDrag = rb.linearDamping;
-        originalAngularDrag = rb.angularDamping;
+        rb.mass = mass;
+        rb.gravityScale = gravityScale;
+        rb.angularDamping = waterAngularDrag;
         
-        UpdateDimensionsFromBounds();
+        UpdateDimensions();
         CreateBuoyancyPoints();
+        CreateWaterLineVisual();
         
-        debugWaterLevels = new Vector2[buoyancyPoints.Length];
-        debugSubmersionDepths = new float[buoyancyPoints.Length];
-        
-        rb.gravityScale = gravityMultiplier;
-        
-        targetWaterHeight = ocean.GetWaterHeightAt(transform.position.x) + cachedDraft;
-        currentHeightVelocity = 0;
-        
-        lastWaveHeight = targetWaterHeight;
-        lastWaveX = transform.position.x;
         lastScale = transform.localScale;
-        
-        rb.angularDamping = angularDamping;
     }
     
     void Update(){
         if(transform.localScale != lastScale){
-            UpdateDimensionsFromBounds();
+            UpdateDimensions();
             CreateBuoyancyPoints();
             lastScale = transform.localScale;
-            
-            debugWaterLevels = new Vector2[buoyancyPoints.Length];
-            debugSubmersionDepths = new float[buoyancyPoints.Length];
         }
         
-        if(showDebug) DebugDrawBuoyancy();
+        if(showDebug) DebugDraw();
+        UpdateWaterLineVisual();
     }
     
-    void UpdateDimensionsFromBounds(){
+    void UpdateDimensions(){
         if(!autoDetectBounds) return;
-        
-        float detectedLength = objLength;
-        float detectedHeight = objHeight;
-        float detectedBottomY = 0f;
         
         if(spriteRenderer != null && spriteRenderer.sprite != null){
             Bounds bounds = spriteRenderer.bounds;
-            Vector3 localBounds = bounds.size;
-            
-            detectedLength = localBounds.x / transform.localScale.x;
-            detectedHeight = localBounds.y / transform.localScale.y;
+            boatLength = bounds.size.x / transform.localScale.x;
+            boatHeight = bounds.size.y / transform.localScale.y;
             
             Vector3 localBottom = transform.InverseTransformPoint(bounds.min);
-            detectedBottomY = localBottom.y;
+            draftDepth = Mathf.Abs(localBottom.y) * 0.6f;
         }
         else if(boundsCollider != null){
             Bounds bounds = boundsCollider.bounds;
-            Vector3 localBounds = bounds.size;
-            
-            detectedLength = localBounds.x / transform.localScale.x;
-            detectedHeight = localBounds.y / transform.localScale.y;
-            
-            Vector3 localBottom = transform.InverseTransformPoint(bounds.min);
-            detectedBottomY = localBottom.y;
+            boatLength = bounds.size.x / transform.localScale.x;
+            boatHeight = bounds.size.y / transform.localScale.y;
         }
         
-        objLength = detectedLength;
-        objHeight = detectedHeight;
-        
-        objDraft = Mathf.Abs(detectedBottomY) * 0.7f;
-        if(objDraft <= 0) objDraft = objHeight * 0.3f;
+        if(draftDepth <= 0) draftDepth = boatHeight * 0.3f;
     }
     
-    void CreateBuoyancyPoints(){
-        int pointCount = 7;
-        buoyancyPoints = new Vector2[pointCount];
+    [ContextMenu("Recreate Buoyancy Points")]
+        void CreateBuoyancyPoints(){
+        buoyancyPoints = new Vector2[buoyancyPointCount];
         
-        float halfLength = cachedLength > 0 ? cachedLength * 0.5f : objLength * 0.5f;
-        float baseY = buoyancyOffsetY - objDraft;
+        float halfLength = cachedLength > 0 ? cachedLength * 0.5f : boatLength * 0.5f;
         
-        for(int i = 0;i < pointCount;i++){
-            float t = i / (float)(pointCount - 1);
+        float bottomY = 0f;
+        if(spriteRenderer != null){
+            Vector3 localBottom = transform.InverseTransformPoint(spriteRenderer.bounds.min);
+            bottomY = localBottom.y;
+        }
+        else if(boundsCollider != null){
+            Vector3 localBottom = transform.InverseTransformPoint(boundsCollider.bounds.min);
+            bottomY = localBottom.y;
+        }
+        else bottomY = -cachedHeight * 0.5f;
+        
+        float buoyancyY = bottomY;
+        for(int i = 0; i < buoyancyPointCount; i++){
+            float t = i / (float)(buoyancyPointCount - 1);
             float x = Mathf.Lerp(-halfLength, halfLength, t);
-            float y = baseY;
+            buoyancyPoints[i] = new Vector2(x, buoyancyY);
+        }
+    }
+    
+    void CreateWaterLineVisual(){
+        GameObject lineObj = new GameObject("WaterLine");
+        lineObj.transform.SetParent(transform);
+        lineObj.transform.localPosition = Vector3.zero;
+        waterLineRenderer = lineObj.AddComponent<LineRenderer>();
+        waterLineRenderer.startWidth = 0.05f;
+        waterLineRenderer.endWidth = 0.05f;
+        waterLineRenderer.material = new Material(Shader.Find("Sprites/Default"));
+        waterLineRenderer.startColor = waterLineColor;
+        waterLineRenderer.endColor = waterLineColor;
+        waterLineRenderer.positionCount = 2;
+        waterLineRenderer.enabled = showWaterLine;
+    }
+    
+    void UpdateWaterLineVisual(){
+        if(waterLineRenderer == null) return;
+        waterLineRenderer.enabled = showWaterLine && inWater;
+        
+        if(inWater && ocean != null){
+            float waterHeight = ocean.GetWaterHeightAt(transform.position.x);
+            float halfLength = cachedLength * 0.5f;
             
-            buoyancyPoints[i] = new Vector2(x, y);
+            Vector3 leftPoint = new Vector3(transform.position.x - halfLength, waterHeight, 0);
+            Vector3 rightPoint = new Vector3(transform.position.x + halfLength, waterHeight, 0);
+            
+            waterLineRenderer.SetPosition(0, leftPoint);
+            waterLineRenderer.SetPosition(1, rightPoint);
         }
     }
     
     void FixedUpdate(){
         if(ocean == null || rb == null) return;
         
-        cachedLength = objLength * transform.localScale.x;
-        cachedHeight = objHeight * transform.localScale.y;
-        cachedDraft = objDraft * transform.localScale.y;
+        cachedLength = boatLength * transform.localScale.x;
+        cachedHeight = boatHeight * transform.localScale.y;
+        cachedDraft = draftDepth * transform.localScale.y;
         
-        UpdateTargetWaterHeight();
-        CheckWaterStatus();
-        ApplyBuoyancy();
-        ApplyWaveRotation();
-        ApplyStabilization();
+        UpdateWaterStatus();
+        ApplyChaosBuoyancy();
         ApplyWaveForces();
-        ApplySmoothWaveFollowing();
-        
-        PreventExcessiveSinking();
+        ApplyWaveRotation();
+        SmoothWaveFollowing();
+        LimitExcessTilt();
         
         float currentWaveHeight = ocean.GetWaterHeightAt(transform.position.x);
-        float deltaX = transform.position.x - lastWaveX;
-        float deltaTime = Time.fixedDeltaTime;
-        
-        if(deltaX != 0 && deltaTime > 0){
-            waveVelocity = (currentWaveHeight - lastWaveHeight) / deltaX * Mathf.Sign(deltaX) * 5f;
-            waveVelocity = Mathf.Clamp(waveVelocity, -10f, 10f);
-        }
-        
+        float deltaX = transform.position.x - lastWaveHeight;
+        if(deltaX != 0) waveVelocity = (currentWaveHeight - lastWaveHeight) / deltaX * 5f;
         lastWaveHeight = currentWaveHeight;
-        lastWaveX = transform.position.x;
-        
-        if(showDebug && showWaveNormals){
-            Vector2 waveNormal = ocean.GetWaterNormalAt(transform.position.x);
-            Debug.DrawRay(transform.position, waveNormal * 2f, Color.magenta);
-        }
     }
     
-    void UpdateTargetWaterHeight(){
-        float totalHeight = 0f;
-        int sampleCount = 0;
-        
-        for(int i = 0;i < buoyancyPoints.Length;i++){
-            float pointHeight = ocean.GetWaterHeightAt(transform.TransformPoint(buoyancyPoints[i]).x);
-            totalHeight += pointHeight;
-            sampleCount++;
-        }
-        
-        targetWaterHeight = (totalHeight / sampleCount) + cachedDraft;
-    }
-    
-    void CheckWaterStatus(){
+    void UpdateWaterStatus(){
         float waterHeight = ocean.GetWaterHeightAt(transform.position.x);
         float boatBottom = transform.position.y - cachedHeight * 0.5f;
-        
+        bool wasInWater = inWater;
         inWater = boatBottom < waterHeight;
         
         if(inWater){
             rb.linearDamping = waterDrag;
             rb.angularDamping = waterAngularDrag;
-        }else{
+        } else {
             rb.linearDamping = airDrag;
             rb.angularDamping = airAngularDrag;
         }
     }
     
-    void ApplyBuoyancy(){
+    void ApplyChaosBuoyancy(){
         if(!inWater) return;
         
-        float totalForce = 0f;
-        int submergedPoints = 0;
-        
-        for(int i = 0;i < buoyancyPoints.Length;i++){
+        for(int i = 0; i < buoyancyPoints.Length; i++){
             Vector2 worldPoint = transform.TransformPoint(buoyancyPoints[i]);
             float waterHeight = ocean.GetWaterHeightAt(worldPoint.x);
-            debugWaterLevels[i] = new Vector2(worldPoint.x, waterHeight);
-            
             float submergedDepth = waterHeight - worldPoint.y;
-            debugSubmersionDepths[i] = submergedDepth;
             
             if(submergedDepth > 0){
-                submergedPoints++;
-                float pointForce = buoyancyForce * (submergedDepth / cachedDraft) * targetSubmersion;
+                float forceMultiplier = Mathf.Clamp01(submergedDepth / cachedDraft);
+                float pointForce = buoyancyForce * forceMultiplier;
                 
-                if(submergedDepth > cachedDraft * 2f) pointForce *= 2f;
+                if(submergedDepth > cachedDraft) pointForce *= (submergedDepth / cachedDraft);
                 
                 Vector2 force = Vector2.up * pointForce;
-                Vector2 localVelocity = transform.InverseTransformDirection(rb.GetPointVelocity(worldPoint));
-                force.y -= localVelocity.y * buoyancyDamping;
-                
                 rb.AddForceAtPosition(force, worldPoint);
-                
-                totalForce += pointForce;
-                
-                if(showDebug && showSubmersion){
-                    Debug.DrawRay(worldPoint, force * 0.05f, Color.green);
-                    Debug.DrawLine(worldPoint, new Vector3(worldPoint.x, waterHeight, 0), Color.Lerp(Color.green, Color.red, submergedDepth / (cachedDraft * 3f)));
-                }
             }
         }
-        
-        if(submergedPoints > 0){
-            float averageSubmersion = totalForce / submergedPoints;
-            float targetForce = buoyancyForce * targetSubmersion;
-            
-            if(averageSubmersion < targetForce * 0.5f){
-                rb.AddForce(Vector2.down * buoyancyForce * 0.1f);
-            }
-        }
-    }
+}
     
-    void ApplySmoothWaveFollowing(){
+    void ApplyWaveForces(){
         if(!inWater) return;
         
-        float heightDifference = targetWaterHeight - transform.position.y;
-        float springForce = heightDifference * waveAttractionStrength;
-        float dampingForce = -currentHeightVelocity * buoyancyDamping;
-        float acceleration = springForce + dampingForce;
+        Vector2 waveNormal = ocean.GetWaterNormalAt(transform.position.x);
+        float intensity = ocean.GetStormIntensity();
         
-        currentHeightVelocity += acceleration * Time.fixedDeltaTime;
-        currentHeightVelocity = Mathf.Clamp(currentHeightVelocity, -5f, 5f);
+        Vector2 slopeForce = new Vector2(-waveNormal.x * horizontalWavePush, Mathf.Abs(waveNormal.x) * 0.5f) * intensity;
+        rb.AddForce(slopeForce);
         
-        Vector2 currentVel = rb.linearVelocity;
-        currentVel.y += currentHeightVelocity * Time.fixedDeltaTime * 2f;
-        rb.linearVelocity = currentVel;
+        float waveHeight = ocean.GetWaterHeightAt(transform.position.x);
+        float nextWave = ocean.GetWaterHeightAt(transform.position.x + 0.3f);
+        float curvature = (nextWave - waveHeight) * verticalWavePush * intensity;
+        rb.AddForce(Vector2.up * curvature);
         
-        if(showDebug){
-            Debug.DrawLine(transform.position, new Vector3(transform.position.x, targetWaterHeight, 0), Color.cyan);
-            Debug.DrawLine(new Vector3(transform.position.x - cachedLength * 0.25f, targetWaterHeight - cachedDraft, 0),
-                         new Vector3(transform.position.x + cachedLength * 0.25f, targetWaterHeight - cachedDraft, 0),
-                         Color.white);
-        }
+        float chop = Mathf.PerlinNoise(Time.time * 3f, transform.position.x * 0.5f) * 2f - 1f;
+        rb.AddForce(new Vector2(chop * chopIntensity, Mathf.Abs(chop) * 0.5f) * intensity);
     }
     
     void ApplyWaveRotation(){
         if(!inWater) return;
         
         Vector2 waveNormal = ocean.GetWaterNormalAt(transform.position.x);
-        
         float targetAngle = -waveNormal.x * maxTiltAngle * ocean.GetStormIntensity();
         targetAngle = Mathf.Clamp(targetAngle, -maxTiltAngle, maxTiltAngle);
         
         float currentAngle = transform.eulerAngles.z;
         if(currentAngle > 180) currentAngle -= 360;
         
-        float finalTargetAngle = Mathf.Lerp(currentAngle, targetAngle, waveFollowStrength);
-        
-        float neutralPull = -currentAngle * selfRightingStrength;
-        finalTargetAngle += neutralPull * Time.fixedDeltaTime;
-        
-        float angleDifference = Mathf.DeltaAngle(currentAngle, finalTargetAngle);
-        float torque = angleDifference * stabilizationForce;
-        torque -= rb.angularVelocity * angularDamping;
+        float angleDiff = Mathf.DeltaAngle(currentAngle, targetAngle);
+        float torque = angleDiff * waveFollowStrength * waveTorqueMultiplier;
+        torque -= rb.angularVelocity * waterAngularDrag;
         
         rb.AddTorque(torque);
+    }
+    
+    void SmoothWaveFollowing(){
+        if(!inWater) return;
         
-        if(showDebug){
-            Debug.DrawRay(transform.position, Quaternion.Euler(0, 0, targetAngle) * Vector2.right * 1.5f, Color.yellow);
-            Debug.DrawRay(transform.position, Quaternion.Euler(0, 0, currentAngle) * Vector2.right * 1.5f, Color.white);
+        float targetHeight = 0;
+        foreach(Vector2 point in buoyancyPoints){
+            targetHeight += ocean.GetWaterHeightAt(transform.TransformPoint(point).x);
+        }
+        targetHeight = (targetHeight / buoyancyPoints.Length) + cachedDraft;
+        
+        float heightDiff = targetHeight - transform.position.y;
+        float springForce = heightDiff * waveAttraction;
+        float damping = -currentHeightVelocity * buoyancyDamping;
+        float acceleration = springForce + damping;
+        
+        currentHeightVelocity += acceleration * Time.fixedDeltaTime;
+        Vector2 vel = rb.linearVelocity;
+        vel.y += currentHeightVelocity * Time.fixedDeltaTime;
+        rb.linearVelocity = vel;
+    }
+    
+    void LimitExcessTilt(){
+        float currentAngle = transform.eulerAngles.z;
+        if(currentAngle > 180) currentAngle -= 360;
+        
+        if(Mathf.Abs(currentAngle) > maxTiltAngle + 15f){
+            float returnTorque = -currentAngle * selfRightingStrength * 3f;
+            rb.AddTorque(returnTorque);
         }
     }
     
-    void ApplyStabilization(){
-        if(!inWater) return;
+    void DebugDraw(){
+        if(buoyancyPoints == null || ocean == null) return;
         
-        Vector2 localVelocity = transform.InverseTransformDirection(rb.linearVelocity);
-        Vector2 lateralStabilization = -transform.right * localVelocity.x * stabilizationForce * 0.5f;
-        rb.AddForce(lateralStabilization);
-    }
-    
-    void ApplyWaveForces(){
-        if(!inWater) return;
-        
-        Vector2 waveNormal = ocean.GetWaterNormalAt(transform.position.x);
-        
-        Vector2 slopeForce = new Vector2(-waveNormal.x, 0) * horizontalForceMultiplier * ocean.GetStormIntensity();
-        rb.AddForce(slopeForce);
-        
-        float waveHeight = ocean.GetWaterHeightAt(transform.position.x);
-        float nextWaveHeight = ocean.GetWaterHeightAt(transform.position.x + 0.5f);
-        float waveCurvature = nextWaveHeight - waveHeight;
-        Vector2 curvatureForce = Vector2.up * waveCurvature * verticalForceMultiplier * ocean.GetStormIntensity();
-        rb.AddForce(curvatureForce);
-        
-        float turbulence = Mathf.PerlinNoise(Time.time * 2f, transform.position.x * 0.1f) * 2f - 1f;
-        Vector2 turbulenceForce = new Vector2(turbulence, Mathf.Abs(turbulence) * 0.3f) * turbulenceStrength * ocean.GetStormIntensity();
-        rb.AddForce(turbulenceForce);
-        
-        if(showDebug) Debug.DrawRay(transform.position, waveNormal * 2f, Color.yellow);
-    }
-    
-    void PreventExcessiveSinking(){
-        if(!inWater) return;
-        
-        float centerDepth = ocean.GetWaterHeightAt(transform.position.x) - transform.position.y;
-        
-        if(centerDepth > cachedDraft * 2f){
-            float excessDepth = centerDepth - cachedDraft;
-            Vector2 antiSinkForce = Vector2.up * buoyancyForce * excessDepth * 2f;
-            rb.AddForce(antiSinkForce);
-            
-            if(showDebug) Debug.DrawRay(transform.position, antiSinkForce * 0.1f, Color.magenta);
-        }
-    }
-    
-    public void ApplyImpactForce(Vector2 impactPoint, float force){
-        if(!inWater) return;
-        
-        Vector2 direction = ((Vector2)transform.position - impactPoint).normalized;
-        float distance = Vector2.Distance(impactPoint, transform.position);
-        
-        float scaledForce = force * impactForceMultiplier / Mathf.Max(1f, distance);
-        
-        rb.AddForce(direction * scaledForce, ForceMode2D.Impulse);
-        
-        Vector2 localImpactPoint = transform.InverseTransformPoint(impactPoint);
-        float torque = localImpactPoint.x > 0 ? -scaledForce * 0.5f : scaledForce * 0.5f;
-        rb.AddTorque(torque * impactDamping);
-        
-        if(showDebug) Debug.DrawLine(impactPoint, transform.position, Color.red, 1f);
-    }
-    
-    void DebugDrawBuoyancy(){
-        if(!showDebug || buoyancyPoints == null || ocean == null) return;
-        
-        DrawBoatOutline();
-        for(int i = 0;i < buoyancyPoints.Length;i++){
-            Vector2 worldPoint = transform.TransformPoint(buoyancyPoints[i]);
-            
-            Color pointColor = debugSubmersionDepths[i] > 0 ? Color.green : Color.red;
-            Debug.DrawRay(worldPoint - Vector2.right * 0.05f, Vector2.right * 0.1f, pointColor);
-            Debug.DrawRay(worldPoint - Vector2.up * 0.05f, Vector2.up * 0.1f, pointColor);
-            
-            if(showSubmersion && debugSubmersionDepths[i] > 0)
-                Debug.DrawLine(worldPoint, new Vector3(worldPoint.x, debugWaterLevels[i].y, 0), Color.Lerp(Color.cyan, Color.blue, debugSubmersionDepths[i] / cachedDraft));
-        }
-    }
-    
-    void DrawBoatOutline(){
         float halfLength = cachedLength * 0.5f;
         float halfHeight = cachedHeight * 0.5f;
         
         Vector2 front = transform.TransformPoint(new Vector2(halfLength, 0));
         Vector2 back = transform.TransformPoint(new Vector2(-halfLength, 0));
-        Vector2 frontTop = transform.TransformPoint(new Vector2(halfLength, halfHeight));
-        Vector2 backTop = transform.TransformPoint(new Vector2(-halfLength, halfHeight));
-        Vector2 frontBottom = transform.TransformPoint(new Vector2(halfLength, -halfHeight));
-        Vector2 backBottom = transform.TransformPoint(new Vector2(-halfLength, -halfHeight));
-        
         Debug.DrawLine(front, back, Color.white);
-        Debug.DrawLine(frontTop, backTop, Color.white);
-        Debug.DrawLine(frontBottom, backBottom, Color.white);
-        Debug.DrawLine(frontTop, frontBottom, Color.white);
-        Debug.DrawLine(backTop, backBottom, Color.white);
-    }
-    
-    public void SetBuoyancyPoints(Vector2[] points){
-        buoyancyPoints = points;
-        debugWaterLevels = new Vector2[points.Length];
-        debugSubmersionDepths = new float[points.Length];
-    }
-    
-    public void AdjustBuoyancy(float multiplier){
-        buoyancyForce *= multiplier;
-        buoyancyDamping *= multiplier;
+        
+        for(int i = 0; i < buoyancyPoints.Length; i++){
+            Vector2 worldPoint = transform.TransformPoint(buoyancyPoints[i]);
+            float waterHeight = ocean.GetWaterHeightAt(worldPoint.x);
+            bool submerged = worldPoint.y < waterHeight;
+            
+            Debug.DrawRay(worldPoint - Vector2.right * 0.1f, Vector2.right * 0.2f, submerged ? Color.green : Color.red);
+            if(showWaterLine) Debug.DrawLine(worldPoint, new Vector3(worldPoint.x, waterHeight, 0), Color.cyan);
+        }
+        
+        Vector2 waveNormal = ocean.GetWaterNormalAt(transform.position.x);
+        Debug.DrawRay(transform.position, waveNormal * 2f, Color.magenta);
+        
+        float waterAtCenter = ocean.GetWaterHeightAt(transform.position.x);
+        Debug.DrawLine(new Vector3(transform.position.x - halfLength, waterAtCenter), new Vector3(transform.position.x + halfLength, waterAtCenter), Color.blue);
     }
     
     void OnDrawGizmosSelected(){
         if(!showDebug) return;
         
         Gizmos.color = Color.yellow;
-        Vector3 center = transform.position;
-        Vector3 size = new Vector3(objLength * transform.localScale.x, objHeight * transform.localScale.y, 0.1f);
-        Gizmos.DrawWireCube(center, size);
+        Vector3 size = new Vector3(boatLength * transform.localScale.x, boatHeight * transform.localScale.y, 0.1f);
+        Gizmos.DrawWireCube(transform.position, size);
         
-        Gizmos.color = Color.cyan;
-        float draftWorld = objDraft * transform.localScale.y;
+        Gizmos.color = Color.green;
+        float bottomY = transform.position.y - (boatHeight * transform.localScale.y * 0.5f);
+        float buoyancyLineY = bottomY + (draftDepth * transform.localScale.y);
         Gizmos.DrawLine(
-            new Vector3(center.x - objLength * 0.5f * transform.localScale.x, center.y - draftWorld, 0),
-            new Vector3(center.x + objLength * 0.5f * transform.localScale.x, center.y - draftWorld, 0)
+            new Vector3(transform.position.x - boatLength * 0.5f * transform.localScale.x, buoyancyLineY),
+            new Vector3(transform.position.x + boatLength * 0.5f * transform.localScale.x, buoyancyLineY)
         );
+        
+        if(buoyancyPoints != null){
+            Gizmos.color = Color.red;
+            foreach(var point in buoyancyPoints) Gizmos.DrawWireSphere(transform.TransformPoint(point), 0.08f);
+        }
     }
-
+    
     public bool InWater => inWater;
-    public float WaveHeightAtPosition(float x) => ocean.GetWaterHeightAt(x);
-    public float WaveSlopeAtPosition(float x) => ocean.GetWaterNormalAt(x).x;
+    public float GetWaveHeight(float x) => ocean?.GetWaterHeightAt(x) ?? 0;
+    public float GetWaveSlope(float x) => ocean?.GetWaterNormalAt(x).x ?? 0;
+
+    public float WaveHeightAtPosition(float x) => ocean?.GetWaterHeightAt(x) ?? 0;
+    public float WaveSlopeAtPosition(float x) => ocean?.GetWaterNormalAt(x).x ?? 0;
     public float WaveVelocityAtPosition(float x) => waveVelocity;
 }

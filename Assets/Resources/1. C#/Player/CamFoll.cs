@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using NaughtyAttributes;
 
 [RequireComponent(typeof(LineRenderer))]
 public class CamFoll : MonoBehaviour
@@ -11,15 +12,16 @@ public class CamFoll : MonoBehaviour
     [SerializeField] private float maxDistanceFromPlayer = 3f;
     
     [Header("LINE RENDERER")]
-    [SerializeField] private float lineLength = 10f;
+    public bool showLine = false;
+    [EnableIf("showLine")][SerializeField] private float lineLength = 0f;
+    [EnableIf("showLine")][SerializeField] private LineRenderer lineRenderer;
 
     [Header("INPUT")]
     [SerializeField] private float cursorInfluenceRadius = 100f;
 
     [Header("REFERENCES")]
-    [SerializeField] private Transform playerTransform;
-    [SerializeField] private Camera thisCam;
-    [SerializeField] private LineRenderer lineRenderer;
+    [Required][SerializeField] private Transform playerTransform;
+    [Required][SerializeField] private Camera thisCam;
     
     private Vector3 offset;
 
@@ -28,7 +30,7 @@ public class CamFoll : MonoBehaviour
         
         CalculateOffsetFromCursor();
         UpdateCameraPosition();
-        UpdateLineRenderer();
+        if(showLine) UpdateLineRenderer();
     }
 
     void CalculateOffsetFromCursor(){

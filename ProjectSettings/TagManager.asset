@@ -6,6 +6,7 @@ TagManager:
   tags:
   - Water
   - Enemy
+  - FoodCrate
   layers:
   - Default
   - TransparentFX
@@ -17,7 +18,7 @@ TagManager:
   - Enemy
   - Ground
   - Ignore
-  - 
+  - EnemyProjectile
   - 
   - 
   - 

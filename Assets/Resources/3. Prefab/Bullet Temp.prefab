@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 2058191199630988949}
   - component: {fileID: 393443856200818126}
   - component: {fileID: 4829029358973030455}
-  m_Layer: 9
+  m_Layer: 0
   m_Name: Bullet Temp
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -128,7 +128,7 @@ CircleCollider2D:
   m_CompositeOperation: 0
   m_CompositeOrder: 0
   m_Offset: {x: 0, y: 0.21133333}
-  m_Radius: 0.5
+  m_Radius: 1.14
 --- !u!50 &393443856200818126
 Rigidbody2D:
   serializedVersion: 5
@@ -171,4 +171,4 @@ MonoBehaviour:
   lifetime: 5
   collisionLayers:
     serializedVersion: 2
-    m_Bits: 448
+    m_Bits: 128

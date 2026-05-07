@@ -1,21 +1,20 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Nova;
+using NaughtyAttributes;
 
 public class PlayerDebug : MonoBehaviour
 {
-    [Header("References")]
-    [SerializeField] private UIBlock2D debugPanel;
-    [SerializeField] private TextBlock debugText;
-    [SerializeField] private PlayerMovement playerMovement;
+    [Required, Foldout("REFERENCES")][SerializeField] private UIBlock2D debugPanel;
+    [Required, Foldout("REFERENCES")][SerializeField] private TextBlock debugText;
+    [Required, Foldout("REFERENCES")][SerializeField] private PlayerMovement playerMovement;
     
-    [Header("Settings")]
-    [SerializeField] private bool showDetailedInfo = true;
-    [SerializeField] private bool showCollisionInfo = true;
-    [SerializeField] private bool showAbilityInfo = true;
-    [SerializeField] private bool showTimerInfo = true;
-    [SerializeField] private bool showStaminaInfo = true;
-    [SerializeField] private bool showVelocityInfo = true;
+    [Foldout("SETTINGS")][SerializeField] private bool showDetailedInfo = true;
+    [Foldout("SETTINGS")][SerializeField] private bool showCollisionInfo = true;
+    [Foldout("SETTINGS")][SerializeField] private bool showAbilityInfo = true;
+    [Foldout("SETTINGS")][SerializeField] private bool showTimerInfo = true;
+    [Foldout("SETTINGS")][SerializeField] private bool showStaminaInfo = true;
+    [Foldout("SETTINGS")][SerializeField] private bool showVelocityInfo = true;
     
     private Rigidbody2D rb;
     

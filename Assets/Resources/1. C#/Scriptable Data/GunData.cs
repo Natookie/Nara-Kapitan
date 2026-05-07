@@ -5,7 +5,7 @@ public class GunData : ScriptableObject
 {
     [Header("BASIC")]
     public string gunName = "Gun";
-    public float damage = 10f;
+    public int damage = 10;
     public float fireRate = 0.2f;
     public int magazineSize = 30;
     public int maxReserveAmmo = 90;

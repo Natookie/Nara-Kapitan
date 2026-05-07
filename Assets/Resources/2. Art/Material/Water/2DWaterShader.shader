@@ -45,7 +45,7 @@ Shader "Custom/2DWaterShader"
     SubShader
     {
         Tags { 
-            "Queue"="Transparent+1" 
+            "Queue"="Transparent" 
             "RenderType"="Transparent"
             "ForceNoShadowCasting"="True"
             "IgnoreProjector"="True"

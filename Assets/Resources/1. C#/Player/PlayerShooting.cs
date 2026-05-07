@@ -3,15 +3,16 @@ using UnityEngine.InputSystem;
 
 public class PlayerShooting : MonoBehaviour
 {
+    public static PlayerShooting Instance {get; private set;}
+
     [Header("GUN SETTINGS")]
     [SerializeField] private GunData currentGun;
     [SerializeField] private Transform firePoint;
     [SerializeField] private Transform leftArm;
+    [SerializeField] private Transform character;
     
     [Header("AIM MODE")]
     [SerializeField] private float aimMovementRestriction = 0.3f;
-    
-    [Header("LINE RENDERER")]
     [SerializeField] private LineRenderer aimLine;
     
     [Header("REFERENCES")]
@@ -28,11 +29,21 @@ public class PlayerShooting : MonoBehaviour
     private Vector3 aimDirection;
     private Vector3 mouseWorldPos;
     
+    private int lastFacingDirection = 1;
     private float originalMoveSpeed;
     
+    void Awake(){
+        if(Instance != null && Instance != this){
+            Destroy(gameObject);
+            return;
+        }
+        Instance = this;
+    }
+
     void Start(){
         if(currentGun != null) Reload();
         if(mainCamera == null) mainCamera = Camera.main;
+        if(aimLine != null) aimLine.enabled = false;
     }
     
     void Update(){
@@ -43,7 +54,7 @@ public class PlayerShooting : MonoBehaviour
         HandleShooting();
         HandleArmRotation();
         UpdateAimLine();
-        DetectMouseSide();
+        UpdateSpriteFlip();
     }
     
     void UpdateAimDirection(){
@@ -79,10 +90,7 @@ public class PlayerShooting : MonoBehaviour
         
         isAiming = false;
         
-        if(playerMovement != null){
-            playerMovement.SetMoveSpeed(originalMoveSpeed);
-        }
-        
+        if(playerMovement != null) playerMovement.SetMoveSpeed(originalMoveSpeed);
         if(aimLine != null) aimLine.enabled = false;
         aimDirection = Vector3.zero;
     }
@@ -92,8 +100,9 @@ public class PlayerShooting : MonoBehaviour
         
         aimLine.SetPosition(0, firePoint.position);
         aimLine.SetPosition(1, firePoint.position + aimDirection * 20f);
+        Debug.DrawRay(firePoint.position, aimDirection * 5f, Color.red);
     }
-    
+
     void HandleShooting(){
         if(isReloading) return;
         
@@ -110,22 +119,13 @@ public class PlayerShooting : MonoBehaviour
     }
     
     void TryShoot(){
-        if(currentAmmo <= 0){
-            if(reserveAmmo > 0) StartReload();
-            return;
-        }
-        
+        if(currentAmmo <= 0) return;
         Shoot();
     }
     
     void Shoot(){
         currentAmmo--;
-        
         FireBullet();
-        
-        if(currentAmmo <= 0 && reserveAmmo > 0){
-            StartReload();
-        }
     }
     
     void FireBullet(){
@@ -154,9 +154,8 @@ public class PlayerShooting : MonoBehaviour
             bullet.transform.rotation = rotation;
             
             BulletController bulletController = bullet.GetComponent<BulletController>();
-            if(bulletController != null){
+            if(bulletController != null)
                 bulletController.Initialize(direction * currentGun.bulletSpeed, currentGun.damage);
-            }
         }
         
         if(currentGun.muzzleFlashPrefab != null){
@@ -174,17 +173,28 @@ public class PlayerShooting : MonoBehaviour
         leftArm.rotation = Quaternion.Euler(0, 0, angle);
     }
     
-    void DetectMouseSide(){
-        if(!isAiming) return;
+    void UpdateSpriteFlip(){
+        if(character == null) return;
         
-        float mouseSide = mouseWorldPos.x - transform.position.x;
+        Vector3 rotation = character.localEulerAngles;
+        bool shouldFlip = false;
         
-        if(mouseSide > 0){
-            // Debug.Log("Flip sprite right");
+        if(isAiming){
+            float mouseSide = mouseWorldPos.x - transform.position.x;
+            shouldFlip = mouseSide < 0;
         }
-        else if(mouseSide < 0){
-            // Debug.Log("Flip sprite left");
+        else{
+            float input = playerMovement.GetHorizontalInput();
+            
+            if(Mathf.Abs(input) > 0.1f){
+                shouldFlip = input < -0.1f;
+                lastFacingDirection = shouldFlip ? -1 : 1;
+            }else shouldFlip = lastFacingDirection == -1;
         }
+        
+        if(shouldFlip) rotation.y = 180f;
+        else rotation.y = 0f;
+        character.localEulerAngles = rotation;
     }
     
     void StartReload(){
@@ -223,6 +233,7 @@ public class PlayerShooting : MonoBehaviour
     }
     
     public GunData GetCurrentGun() => currentGun;
+    public Transform GetFirePoint() => firePoint;
     public int GetCurrentAmmo() => currentAmmo;
     public int GetReserveAmmo() => reserveAmmo;
     public int GetTotalAmmo() => currentAmmo + reserveAmmo;

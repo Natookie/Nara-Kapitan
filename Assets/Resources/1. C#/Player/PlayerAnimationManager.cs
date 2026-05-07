@@ -1,27 +1,28 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using NaughtyAttributes;
 
 [RequireComponent(typeof(Animator))]
 public class PlayerAnimationManager : MonoBehaviour
 {
     [Header("REFERENCES")]
-    [SerializeField] private PlayerMovement playerMovement;
-    [SerializeField] private Animator animator;
-    [SerializeField] private Transform playerTransform;
-    
-    [Header("ANIMATION STATE NAMES")]
-    [SerializeField] private string idleState = "PlayerIdle";
-    [SerializeField] private string runState = "PlayerRun";
-    [SerializeField] private string anticipationState = "PlayerAnticipation";
-    [SerializeField] private string jumpState = "PlayerJump";
-    [SerializeField] private string fallState = "PlayerFall";
-    [SerializeField] private string landState = "PlayerLand";
+    [Required][SerializeField] private PlayerMovement playerMovement;
+    [Required][SerializeField] private Animator animator;
+    [Required][SerializeField] private Transform playerTransform;
     
     [Header("TRANSITION SETTINGS")]
     [SerializeField] private float landAnimationLength = 0.2f;
     [SerializeField] private float jumpToFallThreshold = 0.8f;
     
+    [Space(10)]
     public string currentState;
+
+    const string idleState = "PlayerIdle";
+    const string runState = "PlayerRun";
+    const string anticipationState = "PlayerAnticipation";
+    const string jumpState = "PlayerJump";
+    const string fallState = "PlayerFall";
+    const string landState = "PlayerLand";
     private bool wasGroundedLastFrame;
     private bool wasJumping;
     private float landTimer;
@@ -31,10 +32,6 @@ public class PlayerAnimationManager : MonoBehaviour
     private bool isInJumpState;
     
     void Start(){
-        if(playerMovement == null) playerMovement = GetComponent<PlayerMovement>();
-        if(animator == null) animator = GetComponent<Animator>();
-        if(playerTransform == null) playerTransform = transform;
-        
         wasGroundedLastFrame = playerMovement.IsGrounded;
         wasAnticipating = false;
         isInJumpState = false;
@@ -44,14 +41,13 @@ public class PlayerAnimationManager : MonoBehaviour
         if(playerMovement == null || animator == null) return;
         
         HandleAnimations();
-        HandlePlayerFlip();
         wasGroundedLastFrame = playerMovement.IsGrounded;
     }
     
     void HandleAnimations(){
         bool isGrounded = playerMovement.IsGrounded;
         float horizontalInput = GetHorizontalInput();
-        bool isMoving = Mathf.Abs(horizontalInput) > 0.1f;
+        bool isMoving = Mathf.Abs(horizontalInput) > 0.1f && Mathf.Abs(playerMovement.GetVelocity.x) > 0.1f;
         float verticalVelocity = playerMovement.GetVelocity.y;
         bool isAnticipating = playerMovement.IsAnticipating;
         
@@ -129,13 +125,6 @@ public class PlayerAnimationManager : MonoBehaviour
         }
     }
     
-    void HandlePlayerFlip(){
-        float horizontalInput = GetHorizontalInput();
-        
-        if(Mathf.Abs(horizontalInput) > 0.1f) lastHorizontalInput = horizontalInput;
-        float facingDirection = (Mathf.Abs(horizontalInput) > 0.1f) ? horizontalInput : lastHorizontalInput;
-    }
-    
     float GetHorizontalInput(){
         float input = 0f;
         if(Keyboard.current[Key.A].isPressed || Keyboard.current[Key.LeftArrow].isPressed) input = -1f;
@@ -145,14 +134,8 @@ public class PlayerAnimationManager : MonoBehaviour
     
     void ChangeAnimationState(string newState){
         if(currentState == newState) return;
-        
-        if(currentState == anticipationState && (newState == idleState || newState == runState)){
-            return;
-        }
-        
-        if((currentState == jumpState || currentState == fallState) && (newState == idleState || newState == runState)){
-            if(!playerMovement.IsGrounded) return;
-        }
+        if(currentState == anticipationState && (newState == idleState || newState == runState)) return;
+        if((currentState == jumpState || currentState == fallState) && (newState == idleState || newState == runState) && !playerMovement.IsGrounded) return;
         
         animator.Play(newState);
         currentState = newState;
@@ -160,13 +143,11 @@ public class PlayerAnimationManager : MonoBehaviour
     
     #region PUBLIC METHODS
     public void ForceIdle(){
-        if(!isLanding && currentState != anticipationState) 
-            ChangeAnimationState(idleState);
+        if(!isLanding && currentState != anticipationState) ChangeAnimationState(idleState);
     }
     
     public void ForceRun(){
-        if(!isLanding && currentState != anticipationState) 
-            ChangeAnimationState(runState);
+        if(!isLanding && currentState != anticipationState) ChangeAnimationState(runState);
     }
     
     public void ForceAnticipation(){

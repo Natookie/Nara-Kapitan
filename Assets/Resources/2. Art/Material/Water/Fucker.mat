@@ -15,12 +15,13 @@ Material:
   - _CIRCLESCROLLDIRECTION_RIGHTTOLEFT
   m_InvalidKeywords:
   - _CIRCLEDIRECTION_LEFTTORIGHT
+  - _CIRCLESCROLLWITHNOISE_ON
   - _SCROLLDIRECTION_BOTH
   - _WATERSCROLLDIRECTION_BOTHHORIZONTAL
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
-  m_CustomRenderQueue: -1
+  m_CustomRenderQueue: 4000
   stringTagMap: {}
   disabledShaderPasses: []
   m_LockedProperties: 
@@ -57,11 +58,11 @@ Material:
     - _ScrollSpeed: 0.5
     - _Smoothness: 0.6
     - _SpecularHighlight: 1
-    - _SrcBlend: 5
+    - _SrcBlend: 6
     - _WaterScrollDirection: 4
     - _WaveAmplitude: 0.06
     - _WaveFrequency: 1.7
-    - _ZTest: 4
+    - _ZTest: 2
     m_Colors:
     - _CircleBottomColor: {r: 0.024519408, g: 0.034252193, b: 0.1792453, a: 1}
     - _CircleColor: {r: 0.18431373, g: 0.25519451, b: 0.30588236, a: 0.6}

@@ -1,97 +1,103 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using NaughtyAttributes;
 
 [RequireComponent(typeof(Rigidbody2D))]
 public class PlayerMovement : MonoBehaviour
 {
-    [Header("GROUND MOVEMENT")]
-    [SerializeField] private float moveSpeed = 8f;
-    [SerializeField] private float acceleration = 15f;
-    [SerializeField] private float deceleration = 20f;
-    [SerializeField] private float turnSpeed = 25f;
-    
-    [Header("AIR MOVEMENT")]
-    [SerializeField] private float airControl = 0.5f;
-    [SerializeField] private float airAcceleration = 8f;
-    
-    private float horizontalInput;
-    private Vector2 currentVelocity;
+    [Foldout("GROUND MOVEMENT")][SerializeField] private float moveSpeed = 8f;
+    [Foldout("GROUND MOVEMENT")][SerializeField] private float acceleration = 15f;
+    [Foldout("GROUND MOVEMENT")][SerializeField] private float deceleration = 20f;
+    [Foldout("GROUND MOVEMENT")][SerializeField] private float turnSpeed = 25f;
+    [ReadOnly, Foldout("GROUND MOVEMENT")] public float horizontalInput;
+    [ReadOnly, Foldout("GROUND MOVEMENT")] public Vector2 currentVelocity;
+    [ReadOnly, Foldout("GROUND MOVEMENT")] public float fallTimer = 0f;
+    [ReadOnly, Foldout("GROUND MOVEMENT")] public bool isGrounded;
+    private bool wasGroundedLastFrame;
 
-    private float fallTimer = 0f;
+    [Foldout("AIR MOVEMENT")][SerializeField] private float airControl = 0.5f;
+    [Foldout("AIR MOVEMENT")][SerializeField] private float airAcceleration = 8f;
     private bool wasFalling = false;
     
-    [Header("JUMP")]
-    [SerializeField] private float minJumpForce = 8f;
-    [SerializeField] private float maxJumpForce = 20f;
-    [SerializeField] private float maxAnticipationTime = 0.3f;
-    [SerializeField] private float coyoteTime = 0.1f;
-    [SerializeField] private float jumpBufferTime = 0.1f;
+    [Foldout("JUMP")][SerializeField] private float minJumpForce = 8f;
+    [Foldout("JUMP")][SerializeField] private float maxJumpForce = 20f;
+    [Foldout("JUMP")][SerializeField] private float maxAnticipationTime = 0.3f;
+    [Foldout("JUMP")][SerializeField] private float coyoteTime = 0.1f;
+    [Foldout("JUMP")][SerializeField] private float jumpBufferTime = 0.1f;
+    [ReadOnly, Foldout("JUMP")] public bool isAnticipating;
+    [ReadOnly, Foldout("JUMP")] public float anticipationHoldTime;
+    [ReadOnly, Foldout("JUMP")] public bool isJumpHeld;
+    [ReadOnly, Foldout("JUMP")] public float coyoteTimer;
+    [ReadOnly, Foldout("JUMP")] public float jumpBufferTimer;
     
-    private bool isAnticipating;
-    private float anticipationHoldTime;
-    private bool isJumpHeld;
-    private float coyoteTimer;
-    private float jumpBufferTimer;
+    [Foldout("DIVE")][SerializeField] private float diveSpeed = 30f;
+    [Foldout("DIVE")][SerializeField] private float diveCancelJump = 8f;
+    [Foldout("DIVE")][SerializeField] private float minDownwardVelocityForDive = -2f;
+    [Foldout("DIVE")][SerializeField] private float groundCheckDistanceForDive = 1f;
+    [ReadOnly, Foldout("DIVE")] public bool isDiving;
+    [ReadOnly, Foldout("DIVE")] public bool canDive = true;
     
-    [Header("DIVE")]
-    [SerializeField] private float diveSpeed = 30f;
-    [SerializeField] private float diveCancelJump = 8f;
-    [SerializeField] private float minDownwardVelocityForDive = -2f;
-    [SerializeField] private float groundCheckDistanceForDive = 1f;
+    [Foldout("DASH")][SerializeField] private float dashForce = 25f;
+    [Foldout("DASH")][SerializeField] private float dashDuration = 0.15f;
+    [Foldout("DASH")][SerializeField] private float dashCooldown = 0.5f;
+    [Foldout("DASH")][SerializeField] private int maxAirDashes = 1;
+    [ReadOnly, Foldout("DASH")] public bool isDashing;
+    [ReadOnly, Foldout("DASH")] public bool canDash = true;
+    [ReadOnly, Foldout("DASH")] public int airDashCount = 0;
+    [ReadOnly, Foldout("DASH")] public float dashTimer;
+    [ReadOnly, Foldout("DASH")] public float dashCooldownTimer;
+    [ReadOnly, Foldout("DASH")] public Vector2 dashDirection;
     
-    private bool isDiving;
-    private bool canDive = true;
+    [Foldout("WALL SLIDE/JUMP")][SerializeField] private float wallSlideSpeed = 3f;
+    [Foldout("WALL SLIDE/JUMP")][SerializeField] private float wallJumpHorizontalForce = 10f;
+    [Foldout("WALL SLIDE/JUMP")][SerializeField] private float wallCheckDistance = 0.6f;
+    [ReadOnly, Foldout("WALL SLIDE/JUMP")] public bool isWallSliding;
+    [ReadOnly, Foldout("WALL SLIDE/JUMP")] public bool isWallLeft;
+    [ReadOnly, Foldout("WALL SLIDE/JUMP")] public bool isWallRight;
+    [ReadOnly, Foldout("WALL SLIDE/JUMP")] public Vector2 wallJumpDirection;
     
-    [Header("DASH")]
-    [SerializeField] private float dashForce = 25f;
-    [SerializeField] private float dashDuration = 0.15f;
-    [SerializeField] private float dashCooldown = 0.5f;
-    [SerializeField] private int maxAirDashes = 1;
+    [ProgressBar("currentStamina", "maxStamina", color: EColor.Blue)]
+    [Foldout("STAMINA")][SerializeField] private float maxStamina = 100f;
+    [Foldout("STAMINA")][SerializeField] private float wallSlideStaminaDrain = 20f;
+    [Foldout("STAMINA")][SerializeField] private float dashStaminaCost = 30f;
+    [Foldout("STAMINA")][SerializeField] private float staminaRegenRate = 15f;
+    [Foldout("STAMINA")][SerializeField] private float staminaRegenDelay = 5f;
+    [ReadOnly, Foldout("STAMINA")]public float currentStamina;
+    [ReadOnly, Foldout("STAMINA")]public float staminaRegenTimer;
+    [ReadOnly, Foldout("STAMINA")]public bool isUsingStamina;
     
-    private bool isDashing;
-    private bool canDash = true;
-    private int airDashCount = 0;
-    private float dashTimer;
-    private float dashCooldownTimer;
-    private Vector2 dashDirection;
+    [Foldout("PHYSICS")][SerializeField] private float groundDrag = 10f;
+    [Foldout("PHYSICS")][SerializeField] private float airDrag = 2f;
+    [Foldout("PHYSICS")][SerializeField] private float fallMultiplier = 2.5f;
+    [Foldout("PHYSICS")][SerializeField] private float lowJumpMultiplier = 2f;
+    [Foldout("PHYSICS")][SerializeField] private LayerMask groundLayer;
     
-    [Header("WALL SLIDE/JUMP")]
-    [SerializeField] private float wallSlideSpeed = 3f;
-    [SerializeField] private float wallJumpForce = 15f;
-    [SerializeField] private float wallJumpHorizontalForce = 10f;
-    [SerializeField] private float wallCheckDistance = 0.6f;
+    [Required, Foldout("REFERENCES")][SerializeField] private PlayerShooting playerShooting;
+    [Required, Foldout("REFERENCES")][SerializeField] private PlayerAnimationManager animManager;
+    [Required, Foldout("REFERENCES")][SerializeField] private Rigidbody2D rb;
+    [Required, Foldout("REFERENCES")][SerializeField] private SpriteRenderer sr;
+    [Required, Foldout("REFERENCES")][SerializeField] private Camera mainCamera;
+    public bool IsGrounded => isGrounded;
+    public bool IsWallSliding => isWallSliding;
+    public bool IsDashing => isDashing;
+    public bool IsDiving => isDiving;
+    public bool IsAnticipating => isAnticipating;
+    public bool CanDive => canDive;
+    public bool CanDash => canDash;
+    public int AirDashCount => airDashCount;
     
-    private bool isWallSliding;
-    private bool isWallLeft;
-    private bool isWallRight;
-    private Vector2 wallJumpDirection;
+    [Button("Reset Stamina", EButtonEnableMode.Editor)]
+    void ResetStamina(){
+        currentStamina = maxStamina;
+    }
     
-    [Header("STAMINA")]
-    [SerializeField] private float maxStamina = 100f;
-    [SerializeField] private float wallSlideStaminaDrain = 20f;
-    [SerializeField] private float dashStaminaCost = 30f;
-    [SerializeField] private float staminaRegenRate = 15f;
-    [SerializeField] private float staminaRegenDelay = 5f;
-    
-    private float currentStamina;
-    private float staminaRegenTimer;
-    private bool isUsingStamina;
-    
-    [Header("PHYSICS")]
-    [SerializeField] private float groundDrag = 10f;
-    [SerializeField] private float airDrag = 2f;
-    [SerializeField] private float fallMultiplier = 2.5f;
-    [SerializeField] private float lowJumpMultiplier = 2f;
-    [SerializeField] private LayerMask groundLayer;
-    
-    [Header("REFERENCES")]
-    [SerializeField] private PlayerShooting playerShooting;
-    [SerializeField] private PlayerAnimationManager animManager;
-    [SerializeField] private Rigidbody2D rb;
-    [SerializeField] private SpriteRenderer sr;
-    [SerializeField] private Camera mainCamera;
-    
-    private bool isGrounded;
+    [Button("Refill Health & Stamina", EButtonEnableMode.Editor)]
+    void DebugRefill(){
+        currentStamina = maxStamina;
+        canDash = true;
+        airDashCount = 0;
+        canDive = true;
+    }
     
     void Start(){
         currentStamina = maxStamina;
@@ -102,14 +108,15 @@ public class PlayerMovement : MonoBehaviour
         CheckCollisions();
         HandleTimers();
         HandleInput();
-        
-        rb.linearDamping = (isGrounded) ? groundDrag : airDrag;
-        UpdateSpriteFlip();
     }
 
     void FixedUpdate(){
+        if(isGrounded != wasGroundedLastFrame){
+            rb.linearDamping = isGrounded ? groundDrag : airDrag;
+            wasGroundedLastFrame = isGrounded;
+        }
+
         HandleStamina();
-        
         if(isDashing) HandleDash();
         else if(isDiving) HandleDive();
         else{
@@ -151,33 +158,6 @@ public class PlayerMovement : MonoBehaviour
         
         DebugDrawDiveRay();
         DebugDrawWallRays();
-    }
-    
-    void DebugDrawDiveRay(){
-        Bounds spriteBounds = sr.bounds;
-        Vector2 groundCheckPos = new Vector2(transform.position.x, spriteBounds.min.y);
-        bool groundNearby = Physics2D.Raycast(groundCheckPos, Vector2.down, groundCheckDistanceForDive, groundLayer);
-        if(groundNearby) canDive = false;
-        Debug.DrawRay(groundCheckPos, Vector2.down * groundCheckDistanceForDive, groundNearby ? Color.red : Color.green);
-    }
-    
-    void DebugDrawWallRays(){
-        Bounds spriteBounds = sr.bounds;
-        Vector2 leftCheckPos = new Vector2(spriteBounds.min.x, transform.position.y);
-        Vector2 rightCheckPos = new Vector2(spriteBounds.max.x, transform.position.y);
-        Debug.DrawRay(leftCheckPos, Vector2.left * wallCheckDistance, isWallLeft ? Color.blue : Color.gray);
-        Debug.DrawRay(rightCheckPos, Vector2.right * wallCheckDistance, isWallRight ? Color.blue : Color.gray);
-    }
-    
-    void OnDrawGizmos(){
-        if(sr != null){
-            Bounds spriteBounds = sr.bounds;
-            Vector2 groundCheckPos = new Vector2(transform.position.x, spriteBounds.min.y);
-            float groundCheckRadius = 0.2f;
-            
-            Gizmos.color = isGrounded ? Color.green : Color.red;
-            Gizmos.DrawWireSphere(groundCheckPos, groundCheckRadius);
-        }
     }
     
     void HandleTimers(){
@@ -224,9 +204,7 @@ public class PlayerMovement : MonoBehaviour
                 anticipationHoldTime = 0f;
                 return;
             }
-            else if(!isGrounded && !isWallSliding && !isDiving){
-                jumpBufferTimer = jumpBufferTime;
-            }
+            else if(!isGrounded && !isWallSliding && !isDiving) jumpBufferTimer = jumpBufferTime;
         }
         
         if(isAnticipating){
@@ -272,22 +250,25 @@ public class PlayerMovement : MonoBehaviour
                 Vector2 groundCheckPos = new Vector2(transform.position.x, spriteBounds.min.y);
                 bool groundNearby = Physics2D.Raycast(groundCheckPos, Vector2.down, groundCheckDistanceForDive, groundLayer);
                 
-                if(!groundNearby){
-                    StartDive();
-                }
+                if(!groundNearby) StartDive();
             }
         }
     }
     
     void HandleDashInput(){
-        if(Mouse.current.rightButton.wasPressedThisFrame && canDash && !isDashing && dashCooldownTimer <= 0){
+        if(Mouse.current.rightButton.wasPressedThisFrame && canDash && !isDashing && dashCooldownTimer <= 0)
             TryDash();
-        }
     }
     #endregion
     
     #region MOVEMENT LOGIC
     void HandleMovement(){
+        if(isAnticipating){
+            float newVelocityX = Mathf.Lerp(rb.linearVelocity.x, 0, 0.2f);
+            rb.linearVelocity = new Vector2(newVelocityX, rb.linearVelocity.y);
+            return;
+        }
+
         bool isFalling = !isGrounded && rb.linearVelocity.y < -0.5f;
         
         if(isFalling){
@@ -303,7 +284,7 @@ public class PlayerMovement : MonoBehaviour
         }
         
         bool restrictMovement = false;
-        if(animManager != null && animManager.IsPlayingLandAnimation() && fallTimer > 3f) restrictMovement = true;
+        if(animManager != null && animManager.IsPlayingLandAnimation() && fallTimer > 1.5f) restrictMovement = true;
         if(restrictMovement){
             rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
             return;
@@ -320,18 +301,12 @@ public class PlayerMovement : MonoBehaviour
             float movement = speedDiff * accelerationRate * Time.fixedDeltaTime;
             currentVelocity.x += movement;
             
-            if(Mathf.Sign(horizontalInput) != Mathf.Sign(currentVelocity.x)){
+            if(Mathf.Sign(horizontalInput) != Mathf.Sign(currentVelocity.x))
                 currentVelocity.x += speedDiff * turnSpeed * Time.fixedDeltaTime;
-            }
         }
-        else{
-            currentVelocity.x = Mathf.MoveTowards(currentVelocity.x, 0, decelerationRate * Time.fixedDeltaTime);
-        }
+        else currentVelocity.x = Mathf.MoveTowards(currentVelocity.x, 0, decelerationRate * Time.fixedDeltaTime);
         
-        if(!isGrounded){
-            currentVelocity.x = Mathf.Lerp(currentVelocity.x, targetSpeed, airControl * Time.fixedDeltaTime);
-        }
-        
+        if(!isGrounded) currentVelocity.x = Mathf.Lerp(currentVelocity.x, targetSpeed, airControl * Time.fixedDeltaTime);
         rb.linearVelocity = currentVelocity;
     }
     #endregion
@@ -403,9 +378,7 @@ public class PlayerMovement : MonoBehaviour
             canDash = true;
             airDashCount = 0;
         }
-        else if(airDashCount < maxAirDashes){
-            canDash = true;
-        }
+        else if(airDashCount < maxAirDashes) canDash = true;
         
         rb.linearVelocity = new Vector2(rb.linearVelocity.x * 0.5f, rb.linearVelocity.y * 0.5f);
     }
@@ -417,11 +390,8 @@ public class PlayerMovement : MonoBehaviour
             float slideVelocity = Mathf.Max(rb.linearVelocity.y, -wallSlideSpeed);
             rb.linearVelocity = new Vector2(rb.linearVelocity.x, slideVelocity);
             
-            if(currentStamina > 0){
-                UseStamina(wallSlideStaminaDrain * Time.fixedDeltaTime);
-            }else{
-                isWallSliding = false;
-            }
+            if(currentStamina > 0) UseStamina(wallSlideStaminaDrain * Time.fixedDeltaTime);
+            else isWallSliding = false;
         }
     }
     
@@ -455,6 +425,33 @@ public class PlayerMovement : MonoBehaviour
         staminaRegenTimer = staminaRegenDelay;
     }
     #endregion
+
+    void DebugDrawDiveRay(){
+        Bounds spriteBounds = sr.bounds;
+        Vector2 groundCheckPos = new Vector2(transform.position.x, spriteBounds.min.y);
+        bool groundNearby = Physics2D.Raycast(groundCheckPos, Vector2.down, groundCheckDistanceForDive, groundLayer);
+        if(groundNearby) canDive = false;
+        Debug.DrawRay(groundCheckPos, Vector2.down * groundCheckDistanceForDive, groundNearby ? Color.red : Color.green);
+    }
+    
+    void DebugDrawWallRays(){
+        Bounds spriteBounds = sr.bounds;
+        Vector2 leftCheckPos = new Vector2(spriteBounds.min.x, transform.position.y);
+        Vector2 rightCheckPos = new Vector2(spriteBounds.max.x, transform.position.y);
+        Debug.DrawRay(leftCheckPos, Vector2.left * wallCheckDistance, isWallLeft ? Color.blue : Color.gray);
+        Debug.DrawRay(rightCheckPos, Vector2.right * wallCheckDistance, isWallRight ? Color.blue : Color.gray);
+    }
+    
+    void OnDrawGizmos(){
+        if(sr != null){
+            Bounds spriteBounds = sr.bounds;
+            Vector2 groundCheckPos = new Vector2(transform.position.x, spriteBounds.min.y);
+            float groundCheckRadius = 0.2f;
+            
+            Gizmos.color = isGrounded ? Color.green : Color.red;
+            Gizmos.DrawWireSphere(groundCheckPos, groundCheckRadius);
+        }
+    }
     
     #region PHYSICS HELPERS
     void HandleGravity(){
@@ -467,11 +464,6 @@ public class PlayerMovement : MonoBehaviour
         
         rb.linearVelocity = velocity;
     }
-    
-    void UpdateSpriteFlip(){
-        if(horizontalInput > 0) sr.flipX = false;
-        else if(horizontalInput < 0) sr.flipX = true;
-    }
     #endregion
     
     #region PUBLIC METHODS
@@ -481,17 +473,9 @@ public class PlayerMovement : MonoBehaviour
         minJumpForce = newMinForce;
         maxJumpForce = newMaxForce;
     }
-    public bool IsGrounded => isGrounded;
-    public bool IsWallSliding => isWallSliding;
-    public bool IsDashing => isDashing;
-    public bool IsDiving => isDiving;
-    public bool IsAnticipating => isAnticipating;
     public float GetAnticipationRatio() => anticipationHoldTime / maxAnticipationTime;
-    public bool CanDive => canDive;
-    public Vector2 GetVelocity => rb.linearVelocity;
     public float GetStaminaPercent() => currentStamina / maxStamina;
-    public bool CanDash => canDash;
-    public int AirDashCount => airDashCount;
-
+    public float GetHorizontalInput() => horizontalInput;
+    public Vector2 GetVelocity => rb.linearVelocity;
     #endregion
 }

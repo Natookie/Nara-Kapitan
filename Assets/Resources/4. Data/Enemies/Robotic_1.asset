@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 21d985170b3f90b4084e79438702579c, type: 3}
+  m_Name: Robotic_1
+  m_EditorClassIdentifier: Assembly-CSharp::RoboticBirdData
+  maxHealth: 2
+  movementSpeed: 10
+  stopRadius: 3
+  stopRadiusTolerance: 5
+  avoidAimingRadius: 2
+  avoidSpeed: 8
+  obstacleMask:
+    serializedVersion: 2
+    m_Bits: 400
+  scoreValue: 20
+  enemySprite: {fileID: 21300000, guid: 6627ec0fde6425247a6f0732fe912f27, type: 3}
+  spriteColor: {r: 0.29872733, g: 0.52125525, b: 0.6462264, a: 1}
+  approachDelay: {x: 3, y: 6}
+  approachSpeed: 8
+  stealRadius: 1.5
+  stealFoodAmount: 5
+  fleeSpeed: 10
+  attackDelay: 0.5
+  projectilePrefab: {fileID: 3323721536984429975, guid: 62349e1a75c6e224185a56bd771e4876, type: 3}
+  projectileSpeed: 15
+  projectileDamage: 10
